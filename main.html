@@ -1,0 +1,3289 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>BlockCraft 3D</title>
+<style>
+  * {
+    margin:0; padding:0; box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;          /* kein blaues Aufblitzen beim Tippen (iOS) */
+    -webkit-touch-callout:none;                        /* kein Auswahl-/Kopier-Menü beim langen Drücken */
+    -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none;
+  }
+  img, canvas { -webkit-user-drag:none; user-drag:none; -webkit-user-select:none; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#000; font-family:'Courier New',monospace; touch-action:none; }
+  /* Eingabefelder dürfen weiterhin auswählbar/bedienbar sein */
+  input, textarea { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
+  #game { display:block; width:100%; height:100%; }
+
+  /* ===== HUD ===== */
+  .hud { display:none; }
+  body.playing .hud { display:block; }
+  body.playing .hud-flex { display:flex; }
+
+  #crosshair {
+    position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:20px; height:20px; pointer-events:none; z-index:5;
+  }
+  #crosshair:before, #crosshair:after { content:''; position:absolute; background:rgba(255,255,255,.85); }
+  #crosshair:before { left:9px; top:0; width:2px; height:20px; }
+  #crosshair:after { top:9px; left:0; width:20px; height:2px; }
+
+  #mineProg {
+    position:fixed; left:50%; top:calc(50% + 22px); transform:translateX(-50%);
+    width:60px; height:7px; background:rgba(0,0,0,.55); border:1px solid #000;
+    z-index:5; display:none;
+  }
+  #mineProg div { height:100%; width:0%; background:#7ec850; }
+
+  #statsCv {
+    position:fixed; left:50%; bottom:62px; transform:translateX(-50%);
+    z-index:5; image-rendering:pixelated; pointer-events:none;
+  }
+  body.creativeMode #statsCv { display:none !important; }
+
+  #hotbar {
+    position:fixed; left:50%; bottom:10px; transform:translateX(-50%);
+    gap:3px; z-index:5;
+  }
+  .slot {
+    width:46px; height:46px; background:rgba(0,0,0,.45);
+    border:3px solid #555; image-rendering:pixelated; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .slot.active { border-color:#fff; }
+  .slot canvas { width:32px; height:32px; image-rendering:pixelated; }
+  .slot .cnt { position:absolute; bottom:1px; right:3px; color:#fff; font-size:11px; font-weight:bold; text-shadow:1px 1px 0 #000; }
+  .slot .num { position:absolute; top:0px; left:3px; color:#aaa; font-size:9px; text-shadow:1px 1px 0 #000; }
+  @media (max-width:560px){
+    .slot { width:34px; height:34px; border-width:2px; }
+    .slot canvas { width:24px; height:24px; }
+    #statsCv { bottom:48px; }
+  }
+
+  #info {
+    position:fixed; top:8px; left:8px; z-index:5; color:#fff; font-size:12px;
+    text-shadow:1px 1px 0 #000; pointer-events:none; line-height:1.6;
+  }
+  #btnPause, #btnInv {
+    position:fixed; top:8px; z-index:6; width:44px; height:44px;
+    background:rgba(0,0,0,.4); border:2px solid rgba(255,255,255,.4);
+    color:#fff; font-size:18px; cursor:pointer;
+  }
+  #btnPause { right:8px; }
+  #btnInv { right:60px; }
+
+  /* ===== Touch UI ===== */
+  .touch-only { display:none !important; }
+  body.touch.playing .touch-only { display:flex !important; }
+  #joy {
+    position:fixed; left:18px; bottom:80px; width:120px; height:120px;
+    border-radius:50%; background:rgba(255,255,255,.10);
+    border:2px solid rgba(255,255,255,.25); z-index:6;
+    align-items:center; justify-content:center;
+  }
+  #joyKnob { width:48px; height:48px; border-radius:50%; background:rgba(255,255,255,.45); pointer-events:none; }
+  #btnJump, #btnMode, #btnDown {
+    position:fixed; z-index:6; width:64px; height:64px; border-radius:50%;
+    background:rgba(255,255,255,.15); border:2px solid rgba(255,255,255,.3);
+    color:#fff; font-size:22px; align-items:center; justify-content:center; user-select:none;
+  }
+  #btnJump { right:24px; bottom:90px; }
+  #btnMode { right:104px; bottom:90px; font-size:26px; }
+  #btnDown { right:24px; bottom:170px; display:none !important; }
+  body.touch.playing.flying #btnDown { display:flex !important; }
+  #btnMode.place { background:rgba(126,200,80,.4); }
+
+  /* ===== Menüs ===== */
+  .screen {
+    position:fixed; inset:0; z-index:20; display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+    color:#fff; text-align:center;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(140,200,255,.18), transparent 60%),
+      radial-gradient(ellipse at 70% 80%, rgba(126,200,80,.12), transparent 55%),
+      linear-gradient(#1c2733, #0d141c);
+  }
+  .screen.open { display:flex; }
+  .screen h1 { font-size:46px; letter-spacing:4px; color:#7ec850; text-shadow:4px 4px 0 #2d5016; margin-bottom:6px; }
+  .screen h2 { font-size:22px; letter-spacing:2px; margin-bottom:18px; color:#e8e8e8; text-shadow:2px 2px 0 #000; }
+  .sub { color:#9ab; font-size:12px; margin-bottom:26px; letter-spacing:1px; }
+
+  .btn {
+    display:block; width:300px; max-width:84vw; margin:5px auto; padding:13px 10px;
+    font-family:inherit; font-size:16px; letter-spacing:1px; cursor:pointer;
+    background:#6f6f6f; color:#fff; text-shadow:1px 1px 0 #333;
+    border:2px solid #000; box-shadow:inset 0 3px 0 rgba(255,255,255,.35), inset 0 -4px 0 rgba(0,0,0,.35);
+  }
+  .btn:hover { filter:brightness(1.12); }
+  .btn:active { box-shadow:inset 0 -3px 0 rgba(255,255,255,.2), inset 0 4px 0 rgba(0,0,0,.35); }
+  .btn.primary { background:#5e9e3a; }
+  .btn.danger { background:#9e3a3a; }
+  .btn.small { width:140px; display:inline-block; margin:5px 4px; padding:10px 6px; font-size:14px; }
+
+  .panel {
+    width:480px; max-width:92vw; max-height:78vh; overflow-y:auto;
+    background:rgba(0,0,0,.45); border:2px solid #000; padding:18px 16px;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.08);
+  }
+
+  .world {
+    display:flex; align-items:center; gap:10px; text-align:left;
+    background:rgba(255,255,255,.06); border:2px solid #000;
+    padding:10px 12px; margin-bottom:8px;
+  }
+  .world .winfo { flex:1; min-width:0; }
+  .world .wname { font-size:16px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .world .wmeta { font-size:11px; color:#9ab; margin-top:3px; line-height:1.5; }
+  .world button {
+    font-family:inherit; font-size:12px; padding:8px 10px; cursor:pointer;
+    background:#5e9e3a; color:#fff; border:2px solid #000; flex-shrink:0;
+  }
+  .world button.del { background:#8a3434; }
+  .empty { color:#9ab; font-size:13px; padding:20px 0; }
+
+  .frow { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0; text-align:left; }
+  .frow label { font-size:14px; color:#dfe7ee; }
+  .frow input[type=text] {
+    flex:1; max-width:240px; padding:9px 10px; font-family:inherit; font-size:14px;
+    background:#0d141c; color:#fff; border:2px solid #000;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.15); outline:none;
+  }
+  .toggle {
+    min-width:130px; padding:9px 10px; font-family:inherit; font-size:13px; cursor:pointer;
+    background:#6f6f6f; color:#fff; border:2px solid #000;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.3), inset 0 -3px 0 rgba(0,0,0,.3);
+  }
+  .toggle.on { background:#5e9e3a; }
+  input[type=range] { flex:1; max-width:200px; accent-color:#7ec850; }
+  .rangeval { min-width:42px; font-size:13px; color:#9ab; text-align:right; }
+
+  /* ===== Inventar ===== */
+  #scrInv {
+    position:fixed; inset:0; z-index:18; display:none;
+    align-items:center; justify-content:center; background:rgba(0,0,0,.5);
+  }
+  #scrInv.open { display:flex; }
+  .invPanel {
+    background:#c6c6c6; border:3px solid #000; padding:12px;
+    box-shadow:inset 2px 2px 0 #fff, inset -2px -2px 0 #555;
+    max-width:96vw;
+  }
+  .invTitle { color:#3a3a3a; font-size:13px; font-weight:bold; text-align:left; margin:2px 0 6px 2px; }
+  .invRow { display:flex; gap:2px; flex-wrap:wrap; max-width:calc(10 * 42px + 18px); }
+  .islot {
+    width:40px; height:40px; background:#8b8b8b; cursor:pointer; position:relative;
+    box-shadow:inset 2px 2px 0 #373737, inset -2px -2px 0 #fff;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .islot canvas { width:28px; height:28px; image-rendering:pixelated; pointer-events:none; }
+  .islot .cnt { position:absolute; bottom:0px; right:2px; color:#fff; font-size:11px; font-weight:bold; text-shadow:1px 1px 0 #000; pointer-events:none; }
+  .invSep { height:10px; }
+  .craftArrow { color:#555; font-size:22px; }
+  .craftHint { color:#5a5a5a; font-size:10px; margin-top:4px; text-align:left; }
+  #playerBox {
+    width:54px; height:128px; background:#1c1c1c;
+    box-shadow:inset 2px 2px 0 #000, inset -2px -2px 0 #444;
+    align-self:flex-start; margin-top:18px;
+  }
+  @media (max-width:520px){
+    #playerBox { display:none; }
+    .craftArrow { font-size:16px; }
+  }
+  @media (max-width:520px){
+    .islot { width:32px; height:32px; }
+    .islot canvas { width:22px; height:22px; }
+    .invRow { max-width:calc(10 * 34px + 18px); }
+  }
+  #cursorItem {
+    position:fixed; z-index:30; pointer-events:none; display:none;
+    width:34px; height:34px;
+  }
+  #cursorItem canvas { width:34px; height:34px; image-rendering:pixelated; }
+  #cursorItem .cnt { position:absolute; bottom:-2px; right:0; color:#fff; font-size:11px; font-weight:bold; text-shadow:1px 1px 0 #000; }
+
+  #toast {
+    position:fixed; left:50%; bottom:120px; transform:translateX(-50%);
+    background:rgba(0,0,0,.8); color:#fff; padding:10px 18px; font-size:13px;
+    border:2px solid #000; z-index:50; display:none;
+  }
+
+  .codeBox {
+    width:100%; height:60px; margin:4px 0 8px; resize:none;
+    font-family:monospace; font-size:10px; line-height:1.3;
+    background:#0d141c; color:#9fd3ff; border:2px solid #000; padding:6px;
+    outline:none; word-break:break-all;
+  }
+  .codeInput {
+    width:100%; margin:6px 0 12px; text-align:center;
+    font-family:monospace; font-size:34px; font-weight:bold; letter-spacing:10px;
+    background:#0d141c; color:#9fd3ff; border:2px solid #000; padding:8px 0 8px 10px;
+    outline:none;
+  }
+  .codeInput::placeholder { color:#34506a; letter-spacing:10px; }
+  .codeBig {
+    text-align:center; font-family:monospace; font-size:40px; font-weight:bold;
+    letter-spacing:8px; color:#8fd058; text-shadow:2px 2px 0 #1d4210;
+    background:#0d141c; border:2px solid #000; padding:10px 0; margin:6px 0 8px;
+    min-height:62px;
+  }
+  .netLabel { font-size:12px; color:#cfe0ee; margin-top:8px; }
+  .netHint { font-size:11px; color:#8aa; line-height:1.5; margin:6px 0; }
+  .netErr { font-size:12px; color:#ff8a8a; margin-top:8px; min-height:14px; }
+  .playerList {
+    background:rgba(0,0,0,.3); border:2px solid #000; padding:6px 8px; margin-top:4px;
+    min-height:40px; max-height:120px; overflow-y:auto;
+  }
+  .playerList .pl {
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:13px; padding:4px 2px; border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .playerList .pl:last-child { border-bottom:none; }
+  .playerList .pl button {
+    font-family:inherit; font-size:11px; padding:3px 8px; cursor:pointer;
+    background:#8a3434; color:#fff; border:2px solid #000;
+  }
+  #netBadge {
+    position:fixed; top:8px; left:50%; transform:translateX(-50%);
+    z-index:5; color:#8fd058; font-size:12px; text-shadow:1px 1px 0 #000;
+    pointer-events:none; display:none;
+  }
+  body.playing #netBadge.on { display:block; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- HUD -->
+<div id="crosshair" class="hud"></div>
+<div id="mineProg" class="hud"><div></div></div>
+<canvas id="statsCv" class="hud" width="364" height="26"></canvas>
+<div id="info" class="hud"></div>
+<div id="netBadge"></div>
+<div id="hotbar" class="hud hud-flex"></div>
+<button id="btnPause" class="hud">| |</button>
+<button id="btnInv" class="hud">⊞</button>
+
+<div id="joy" class="touch-only"><div id="joyKnob"></div></div>
+<div id="btnJump" class="touch-only">▲</div>
+<div id="btnDown" class="touch-only">▼</div>
+<div id="btnMode" class="touch-only">⛏</div>
+
+<!-- Inventar -->
+<div id="scrInv">
+  <div class="invPanel">
+    <div id="creativeBox" style="display:none;">
+      <div class="invTitle">Kreativ: Items nehmen</div>
+      <div class="invRow" id="creativePalette"></div>
+      <div class="invSep"></div>
+    </div>
+    <div style="display:flex; gap:14px; align-items:flex-start;">
+      <div>
+        <div class="invTitle">Rüstung</div>
+        <div id="armorCol" style="display:flex; flex-direction:column; gap:2px;"></div>
+      </div>
+      <div id="playerBox"></div>
+      <div>
+        <div class="invTitle" id="craftTitle">Handwerk</div>
+        <div id="craft2x2wrap" style="display:flex; align-items:center; gap:8px;">
+          <div id="craftGrid" style="display:grid; grid-template-columns:auto auto; gap:2px;"></div>
+          <div class="craftArrow">➜</div>
+          <div id="craftResult"></div>
+        </div>
+        <div id="craft3x3wrap" style="display:none; align-items:center; gap:8px;">
+          <div id="tableGrid" style="display:grid; grid-template-columns:auto auto auto; gap:2px;"></div>
+          <div class="craftArrow">➜</div>
+          <div id="tableResult"></div>
+        </div>
+        <div id="furnaceWrap" style="display:none; align-items:center; gap:12px;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+            <div id="furInSlot"></div>
+            <div id="furFlame" style="font-size:18px; line-height:1; filter:grayscale(1); opacity:.35;">🔥</div>
+            <div id="furFuelSlot"></div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:3px;">
+            <div class="craftArrow">➜</div>
+            <div style="width:46px; height:6px; background:#777; box-shadow:inset 1px 1px 0 #555;"><div id="furProgBar" style="height:100%; width:0%; background:#d8902a;"></div></div>
+          </div>
+          <div id="furOutSlot"></div>
+        </div>
+        <div class="craftHint" id="craftHint">1 Holz ➜ 4 Bretter · 2 Bretter ➜ 4 Stöcke · 4 Bretter ➜ Werkbank</div>
+      </div>
+    </div>
+    <div class="invSep"></div>
+    <div class="invTitle">Inventar</div>
+    <div class="invRow" id="invGrid"></div>
+    <div class="invSep"></div>
+    <div class="invTitle">Hotbar</div>
+    <div class="invRow" id="invHotbarRow"></div>
+    <div class="craftHint" style="margin-top:8px;">Rechtsklick (oder lang drücken) teilt einen Stapel zur Hälfte. Mit Stapel in der Hand: einzeln ablegen.</div>
+  </div>
+</div>
+<div id="cursorItem"><canvas width="16" height="16"></canvas><span class="cnt"></span></div>
+
+<!-- Hauptmenü -->
+<div class="screen open" id="scrMain">
+  <h1>BLOCKCRAFT 3D</h1>
+  <div class="sub">Eine Voxel-Welt im Browser</div>
+  <button class="btn primary" id="btnSingle">Einzelspieler</button>
+  <button class="btn" id="btnMulti">Mehrspieler</button>
+  <button class="btn" id="btnSettings">Einstellungen</button>
+  <button class="btn danger" id="btnExit">Beenden</button>
+</div>
+
+<!-- Weltauswahl -->
+<div class="screen" id="scrWorlds">
+  <h2>Welt auswählen</h2>
+  <div class="panel"><div id="worldList"></div></div>
+  <div style="margin-top:14px;">
+    <button class="btn small primary" id="btnNewWorld">Neue Welt</button>
+    <button class="btn small" id="btnWorldsBack">Zurück</button>
+  </div>
+</div>
+
+<!-- Welt erstellen -->
+<div class="screen" id="scrCreate">
+  <h2>Neue Welt erstellen</h2>
+  <div class="panel">
+    <div class="frow"><label>Weltname</label><input type="text" id="inWorldName" maxlength="24" value="Neue Welt"></div>
+    <div class="frow"><label>Seed (optional)</label><input type="text" id="inSeed" maxlength="12" placeholder="zufällig"></div>
+    <div class="frow"><label>Spielmodus</label><button class="toggle" id="tglMode">Überleben</button></div>
+    <div class="frow"><label>Schwierigkeit</label><button class="toggle" id="tglDiff">Normal</button></div>
+    <div class="frow"><label>Cheats</label><button class="toggle" id="tglCheats">Aus</button></div>
+    <div style="font-size:11px; color:#9ab; text-align:left; line-height:1.6; margin-top:6px;">
+      Cheats An: Taste G (oder ⛏ lange halten) wechselt im Spiel den Modus.<br>
+      Überleben: leere Hotbar, Blöcke abbauen dauert Zeit, Leben und Hunger aktiv.<br>
+      Äpfel droppen manchmal aus Laub und füllen den Hunger.
+    </div>
+  </div>
+  <div style="margin-top:14px;">
+    <button class="btn small primary" id="btnCreateGo">Erstellen</button>
+    <button class="btn small" id="btnCreateBack">Zurück</button>
+  </div>
+</div>
+
+<!-- Einstellungen -->
+<div class="screen" id="scrSettings">
+  <h2>Einstellungen</h2>
+  <div class="panel">
+    <div class="frow"><label>Spielername</label><input type="text" id="inName" maxlength="16" value="Spieler"></div>
+    <div class="frow"><label>Sichtweite</label><input type="range" id="rngDist" min="3" max="8" step="1"><span class="rangeval" id="valDist"></span></div>
+    <div class="frow"><label>Sichtfeld (FOV)</label><input type="range" id="rngFov" min="60" max="100" step="1"><span class="rangeval" id="valFov"></span></div>
+    <div class="frow"><label>Empfindlichkeit</label><input type="range" id="rngSens" min="50" max="200" step="5"><span class="rangeval" id="valSens"></span></div>
+  </div>
+  <div style="margin-top:14px;"><button class="btn small" id="btnSettingsBack">Fertig</button></div>
+</div>
+
+<!-- Mehrspieler: beitreten -->
+<div class="screen" id="scrJoin">
+  <h2>Mehrspieler beitreten</h2>
+  <div class="panel" style="text-align:left;">
+    <div class="frow"><label>Dein Name</label><input type="text" id="joinName" maxlength="16" value="Spieler"></div>
+    <div class="netLabel" style="text-align:center;">Code vom Host eingeben:</div>
+    <input type="text" id="joinCode" inputmode="numeric" maxlength="6" placeholder="------" class="codeInput">
+    <div class="frow"><label>Passwort (falls nötig)</label><input type="text" id="joinPass" maxlength="24" placeholder="leer lassen"></div>
+    <button class="btn small primary" id="btnJoinGo" style="width:100%;">Beitreten</button>
+    <div id="joinStatus" class="netHint" style="text-align:center;"></div>
+    <div id="joinError" class="netErr"></div>
+  </div>
+  <div style="margin-top:12px;"><button class="btn small" id="btnJoinBack">Zurück</button></div>
+</div>
+
+<!-- Mehrspieler: hosten -->
+<div class="screen" id="scrHost">
+  <h2>Welt hosten</h2>
+  <div class="panel" style="text-align:left;">
+    <div class="netHint" style="text-align:center;">Dein Code zum Beitreten:</div>
+    <div id="hostCodeBig" class="codeBig">------</div>
+    <button class="btn small" id="btnCopyCode" style="width:100%;">Code kopieren</button>
+    <div class="frow" style="margin-top:14px;"><label>Passwort verlangen</label><button class="toggle" id="tglHostPass">Aus</button></div>
+    <div class="frow" id="hostPassRow" style="display:none;"><label>Passwort</label><input type="text" id="hostPass" maxlength="24" placeholder="Passwort"></div>
+    <div class="netLabel">Verbundene Spieler:</div>
+    <div id="playerList" class="playerList"><div class="netHint">Noch niemand verbunden.</div></div>
+  </div>
+  <div style="margin-top:12px;"><button class="btn small primary" id="btnHostBack">Zurück zum Spiel</button></div>
+</div>
+
+<!-- Pause -->
+<div class="screen" id="scrPause" style="background:rgba(10,15,22,.78);">
+  <h2>Spiel pausiert</h2>
+  <button class="btn primary" id="btnResume">Weiterspielen</button>
+  <button class="btn" id="btnHostOpen">Welt hosten</button>
+  <button class="btn" id="btnPauseSettings">Einstellungen</button>
+  <button class="btn" id="btnSaveQuit">Speichern und Hauptmenü</button>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ============ Konstanten ============ */
+var CHUNK = 16, SY = 64;
+var WORLD = 64;
+var WORLD_BLOCKS = WORLD * CHUNK;
+var AIR=0, GRASS=1, DIRT=2, STONE=3, WOOD=4, LEAVES=5, SAND=6, PLANK=7, BENCH=8, APPLE=9;
+var STICK=10, WPICK=11, WAXE=12, WSHOVEL=13, WSWORD=14, SPICK=15, SAXE=16, SSHOVEL=17, SSWORD=18;
+var COAL_ORE=19, FURNACE=20, WOOL=21;                         // Blöcke
+var COAL=22, RAW_BEEF=23, COOKED_BEEF=24, RAW_MUTTON=25, COOKED_MUTTON=26, LEATHER=27;   // Items
+var DIFFS = ['Friedlich','Einfach','Normal','Schwer'];
+var ITEM_NAMES = {1:'Gras',2:'Erde',3:'Stein',4:'Holz',5:'Laub',6:'Sand',7:'Bretter',8:'Werkbank',9:'Apfel',
+  10:'Stock',11:'Holzspitzhacke',12:'Holzaxt',13:'Holzschaufel',14:'Holzschwert',
+  15:'Steinspitzhacke',16:'Steinaxt',17:'Steinschaufel',18:'Steinschwert',
+  19:'Kohleerz',20:'Ofen',21:'Wolle',22:'Kohle',23:'Rohes Rindfleisch',24:'Steak',
+  25:'Rohes Hammelfleisch',26:'Gebratenes Hammelfleisch',27:'Leder'};
+var BREAK_TIME = {1:0.7, 2:0.6, 3:3.5, 4:1.6, 5:0.35, 6:0.6, 7:1.6, 8:1.8, 19:4.2, 20:4.5, 21:0.6};
+var MAX_STACK = 64;
+// Essbares: Item -> Hunger das es auffüllt
+var FOOD = {}; FOOD[APPLE]=8; FOOD[RAW_BEEF]=3; FOOD[COOKED_BEEF]=8; FOOD[RAW_MUTTON]=2; FOOD[COOKED_MUTTON]=6;
+// Schmelzen im Ofen: Eingabe -> Ausgabe
+var SMELT = {}; SMELT[RAW_BEEF]=COOKED_BEEF; SMELT[RAW_MUTTON]=COOKED_MUTTON; SMELT[SAND]=undefined;
+// Brennstoff: Item -> Brenndauer in Sekunden
+var FUEL = {}; FUEL[COAL]=80; FUEL[PLANK]=15; FUEL[WOOD]=18; FUEL[STICK]=5;
+var SMELT_TIME = 10;   // Sekunden pro geschmolzenem Item
+function isTool(id){ return id >= WPICK && id <= SSWORD; }
+function maxStack(id){ return isTool(id) ? 1 : MAX_STACK; }
+// Werkzeug-Info: Typ + Stufe (1 Holz, 2 Stein)
+function toolInfo(id){
+  switch(id){
+    case WPICK: return {type:'pick', tier:1};   case SPICK: return {type:'pick', tier:2};
+    case WAXE: return {type:'axe', tier:1};     case SAXE: return {type:'axe', tier:2};
+    case WSHOVEL: return {type:'shovel', tier:1}; case SSHOVEL: return {type:'shovel', tier:2};
+    case WSWORD: return {type:'sword', tier:1};  case SSWORD: return {type:'sword', tier:2};
+    default: return null;
+  }
+}
+// Welche Werkzeugart hilft bei welchem Block
+function blockCategory(id){
+  if(id === STONE || id === COAL_ORE || id === FURNACE) return 'pick';
+  if(id === WOOD || id === PLANK || id === BENCH) return 'axe';
+  if(id === DIRT || id === GRASS || id === SAND) return 'shovel';
+  return null;
+}
+var HOTBAR_N = 10, INV_N = 30, SLOTS_N = HOTBAR_N + INV_N;   // 0..39 = Lager
+var CRAFT_0 = 40, CRAFT_RESULT = 44;                          // 40..43 Craftfeld 2x2, 44 Ergebnis
+var ARMOR_0 = 45, ARMOR_END = 49;                             // 45..48 Rüstung (Helm,Brust,Hose,Schuhe)
+var TABLE_0 = 49, TABLE_RESULT = 58;                          // 49..57 Werkbank 3x3, 58 Ergebnis
+var FUR_IN = 59, FUR_FUEL = 60, FUR_OUT = 61;                 // Ofen: Eingabe, Brennstoff, Ausgabe
+var TOTAL_SLOTS = 62;
+var GRAVITY = 24, JUMP = 8.2, SPEED = 4.5, FLY_SPEED = 9;     // Physik (früh, da Tiere sie nutzen)
+
+/* ============ Speicher ============ */
+/* Reihenfolge: window.storage (Artefakt) -> localStorage (heruntergeladene
+   Datei) -> RAM. So bleiben Welten und Name lokal erhalten, egal wo das Spiel
+   läuft. */
+var memStore = {};
+function lsGet(k){ try{ return window.localStorage ? localStorage.getItem(k) : null; }catch(e){ return null; } }
+function lsSet(k,v){ try{ if(window.localStorage){ localStorage.setItem(k,v); return true; } }catch(e){} return false; }
+function lsDel(k){ try{ if(window.localStorage) localStorage.removeItem(k); }catch(e){} }
+var store = {
+  get: function(k){
+    return new Promise(function(res){
+      if(window.storage && window.storage.get){
+        window.storage.get(k).then(function(r){
+          res(r ? r.value : (lsGet(k) || (k in memStore ? memStore[k] : null)));
+        }).catch(function(){ res(lsGet(k) || (k in memStore ? memStore[k] : null)); });
+      } else {
+        res(lsGet(k) || (k in memStore ? memStore[k] : null));
+      }
+    });
+  },
+  set: function(k,v){
+    memStore[k] = v;
+    var ls = lsSet(k,v);
+    if(window.storage && window.storage.set) window.storage.set(k,v).catch(function(){});
+  },
+  del: function(k){
+    delete memStore[k];
+    lsDel(k);
+    if(window.storage && window.storage.delete) window.storage.delete(k).catch(function(){});
+  }
+};
+
+/* ============ Einstellungen ============ */
+var settings = { dist:5, fov:75, sens:100, name:'Spieler' };
+function applySettings(){
+  if(camera){ camera.fov = settings.fov; camera.updateProjectionMatrix(); }
+  var edge = settings.dist*CHUNK;            // Chunk-Ladekante
+  scene.fog.far = edge - 2;                  // Nebel endet genau an der Kante
+  scene.fog.near = edge - 22;                // schmales Nebelband davor
+  if(inGame){ lastPCX = -999; updateChunks(true); }
+}
+function saveSettings(){ store.set('bc_settings', JSON.stringify(settings)); }
+
+/* ============ Welten ============ */
+var worlds = [];
+var current = null;
+var editsByChunk = {};
+var editsDirty = false;
+
+function saveWorlds(){
+  if(net && net.mode === 'client') return;   // Gast speichert die Welt nicht
+  store.set('bc_worlds', JSON.stringify(worlds));
+}
+function saveEdits(){
+  if(!current || (net && net.mode === 'client')) return;
+  store.set('bc_edits_' + current.id, JSON.stringify(editsByChunk));
+  editsDirty = false;
+}
+function savePlayerState(){
+  if(!current || (net && net.mode === 'client')) return;
+  syncOpenFurnaceFromSlots();   // offenen Ofen vor dem Speichern in die Registry sichern
+  // Craftfelder, Ergebnisse und Ofen-Spiegel nicht im Inventar mitspeichern
+  var saveInv = slots.slice();
+  for(var i=CRAFT_0; i<=CRAFT_RESULT; i++) saveInv[i] = null;
+  for(var j=TABLE_0; j<=TABLE_RESULT; j++) saveInv[j] = null;
+  saveInv[FUR_IN] = null; saveInv[FUR_FUEL] = null; saveInv[FUR_OUT] = null;
+  current.player = {
+    x:player.pos.x, y:player.pos.y, z:player.pos.z,
+    yaw:player.yaw, pitch:player.pitch, mode:gameMode,
+    hp:health, food:hunger, inv:saveInv
+  };
+  current.furnaces = furnaces;   // jeder Ofen mit eigenem Inhalt
+  saveWorlds();
+}
+
+/* ============ Noise ============ */
+var SEED = 1;
+function hash2(x,z){
+  var n = (x|0) * 374761393 + (z|0) * 668265263 + (SEED|0) * 144665;
+  n = (n ^ (n >> 13)) * 1274126177;
+  return ((n ^ (n >> 16)) >>> 0) / 4294967295;
+}
+function thash(x,z){
+  var n = (x|0) * 374761393 + (z|0) * 668265263 + 99991;
+  n = (n ^ (n >> 13)) * 1274126177;
+  return ((n ^ (n >> 16)) >>> 0) / 4294967295;
+}
+function smooth(t){ return t*t*(3-2*t); }
+function noise2(x,z){
+  var xi = Math.floor(x), zi = Math.floor(z);
+  var xf = x - xi, zf = z - zi;
+  var a = hash2(xi,zi), b = hash2(xi+1,zi), c = hash2(xi,zi+1), d = hash2(xi+1,zi+1);
+  var u = smooth(xf), v = smooth(zf);
+  return a*(1-u)*(1-v) + b*u*(1-v) + c*(1-u)*v + d*u*v;
+}
+function terrainHeight(x,z){
+  var n = noise2(x/90, z/90)*0.5 + noise2(x/28, z/28)*0.35 + noise2(x/9, z/9)*0.15;
+  var mountains = noise2(x/160 + 500, z/160 + 500);
+  var h = 12 + n*16 + (mountains > 0.62 ? (mountains-0.62)*70 : 0);
+  return Math.min(SY-10, Math.floor(h));
+}
+
+/* ============ Chunks ============ */
+var chunks = {};
+function ckey(cx,cz){ return cx + ',' + cz; }
+function chunkInWorld(cx,cz){ return cx>=0 && cx<WORLD && cz>=0 && cz<WORLD; }
+function bIdx(lx,y,lz){ return (lx*CHUNK + lz)*SY + y; }
+
+function genChunk(cx,cz){
+  var b = new Uint8Array(CHUNK*CHUNK*SY);
+  var x0 = cx*CHUNK, z0 = cz*CHUNK;
+  for(var lx=0; lx<CHUNK; lx++){
+    for(var lz=0; lz<CHUNK; lz++){
+      var h = terrainHeight(x0+lx, z0+lz);
+      for(var y=0; y<=h; y++){
+        var blk;
+        if(y === 0) blk = STONE;
+        else if(y === h) blk = (h <= 12) ? SAND : GRASS;
+        else if(y >= h-3) blk = (h <= 12) ? SAND : DIRT;
+        else {
+          blk = STONE;
+          // Kohleerz-Adern: tiefer im Stein, deterministisch
+          if(y < h-4 && y > 1 && hash2((x0+lx)*131 + y*977, (z0+lz)*197 + y*53) < 0.035) blk = COAL_ORE;
+        }
+        b[bIdx(lx,y,lz)] = blk;
+      }
+    }
+  }
+  /* Bäume: pro Spalte eine kleine, weltkoordinaten-basierte Chance.
+     Dadurch kein Raster-Muster und insgesamt deutlich seltener.
+     Wahrscheinlichkeit variiert zusätzlich über großräumiges Rauschen
+     (Waldgebiete vs. fast leere Ebenen). */
+  for(var tx=2; tx<14; tx++){
+    for(var tz=2; tz<14; tz++){
+      var wx = x0+tx, wz = z0+tz;
+      var forest = noise2(wx/120 + 9000, wz/120 + 9000);     // Walddichte 0..1
+      var chance = 0.001 + Math.max(0, forest-0.45) * 0.022; // 0,1% bis ~1,3%
+      if(hash2(wx*31 + 17, wz*57 + 41) > chance) continue;
+      var th = terrainHeight(wx, wz);
+      if(b[bIdx(tx,th,tz)] !== GRASS) continue;
+      var trunkH = 4 + Math.floor(hash2(wx*7, wz*11)*2);
+      for(var i=1; i<=trunkH && th+i<SY; i++) b[bIdx(tx,th+i,tz)] = WOOD;
+      var topY = th + trunkH;
+      for(var dx=-2; dx<=2; dx++) for(var dz=-2; dz<=2; dz++) for(var dy=0; dy<=2; dy++){
+        if(Math.abs(dx)+Math.abs(dz)+dy > 3) continue;
+        if(dx===0 && dz===0 && dy<1) continue;
+        var py = topY+dy;
+        if(py >= SY) continue;
+        var idx = bIdx(tx+dx, py, tz+dz);
+        if(b[idx] === AIR) b[idx] = LEAVES;
+      }
+    }
+  }
+  var e = editsByChunk[ckey(cx,cz)];
+  if(e){ for(var k in e) b[k|0] = e[k]; }
+  return { b:b, mesh:null, cx:cx, cz:cz };
+}
+
+function getChunk(cx,cz){
+  if(!chunkInWorld(cx,cz)) return null;
+  var k = ckey(cx,cz);
+  var c = chunks[k];
+  if(!c){ c = genChunk(cx,cz); chunks[k] = c; }
+  return c;
+}
+function getB(x,y,z){
+  if(y < 0 || y >= SY) return AIR;
+  var c = getChunk(x >> 4, z >> 4);
+  if(!c) return AIR;
+  return c.b[bIdx(x & 15, y, z & 15)];
+}
+function setB(x,y,z,v){
+  if(y < 0 || y >= SY) return;
+  var cx = x >> 4, cz = z >> 4;
+  var c = getChunk(cx,cz);
+  if(!c) return;
+  var idx = bIdx(x & 15, y, z & 15);
+  c.b[idx] = v;
+  var k = ckey(cx,cz);
+  if(!editsByChunk[k]) editsByChunk[k] = {};
+  editsByChunk[k][idx] = v;
+  editsDirty = true;
+}
+
+/* ============ Textur-Atlas: 16x16 Pixel-Art ============ */
+var TILES = 15, TPX = 16;
+var atlasCv = document.createElement('canvas');
+atlasCv.width = TILES*TPX; atlasCv.height = TPX;
+var actx = atlasCv.getContext('2d');
+
+function px(t,x,y,c){ actx.fillStyle = c; actx.fillRect(t*TPX+x, y, 1, 1); }
+function tn(t,x,y,s){ return thash(t*731 + x*17 + s*101, y*53 + t*3 + s*7); }
+function pick(arr, r){ return arr[Math.min(arr.length-1, Math.floor(r*arr.length))]; }
+
+function drawDirt(t){
+  var browns = ['#9b6c48','#8c5d3b','#7e5234','#a5764f','#74492c'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(t,x,y, pick(browns, tn(t,x,y,1)));
+  for(var i=0;i<7;i++){
+    var kx = Math.floor(tn(t,i,3,2)*14), ky = Math.floor(tn(t,i,9,3)*14);
+    px(t,kx,ky,'#5e3a20'); px(t,kx+1,ky,'#684226');
+    px(t,kx,ky+1,'#684226'); px(t,kx+1,ky+1,'#5e3a20');
+  }
+  for(var s=0;s<5;s++) px(t, Math.floor(tn(t,s,21,4)*15), Math.floor(tn(t,s,33,5)*15), '#b08e6c');
+}
+drawDirt(2);
+
+(function(){ var g=['#7cbd45','#74b33e','#6aa838','#80c24a','#619e33'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(0,x,y, pick(g, tn(0,x,y,1)));
+  for(var i=0;i<9;i++){
+    px(0, Math.floor(tn(0,i,5,2)*16), Math.floor(tn(0,i,11,3)*16), '#8fd058');
+    px(0, Math.floor(tn(0,i,17,4)*16), Math.floor(tn(0,i,23,5)*16), '#578c2c');
+  }
+})();
+(function(){ drawDirt(1);
+  var gTop = ['#7cbd45','#74b33e','#6aa838','#80c24a'];
+  for(var x=0;x<16;x++){
+    var depth = 2 + Math.floor(tn(1,x,1,6)*3);
+    for(var y=0;y<depth;y++) px(1,x,y, pick(gTop, tn(1,x,y,7)));
+    px(1,x,depth,'#578c2c');
+    if(tn(1,x,2,8) > 0.7 && depth < 5) px(1,x,depth+1,'#578c2c');
+  }
+})();
+(function(){ var g=['#909090','#8a8a8a','#9a9a9a','#858585'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(3,x,y, pick(g, tn(3,x,y,1)));
+  for(var i=0;i<6;i++){
+    var fx = 1+Math.floor(tn(3,i,7,2)*13), fy = 1+Math.floor(tn(3,i,13,3)*13);
+    px(3,fx,fy,'#6e6e6e'); px(3,fx+1,fy,'#757575');
+    px(3,fx,fy+1,'#757575'); px(3,fx+1,fy+1,'#a8a8a8');
+    if(tn(3,i,19,4) > 0.5) px(3,fx+2,fy,'#6e6e6e');
+  }
+  for(var r=0;r<3;r++){
+    var rx = 2+Math.floor(tn(3,r,29,5)*11), ry = 2+Math.floor(tn(3,r,37,6)*11);
+    px(3,rx,ry,'#646464'); px(3,rx+1,ry+1,'#646464'); px(3,rx+2,ry+1,'#6e6e6e');
+  }
+})();
+(function(){ var bark=['#6b5232','#5f4729','#73593a','#553f23'];
+  for(var x=0;x<16;x++){
+    var shade = pick(bark, tn(4,x,0,1));
+    for(var y=0;y<16;y++){
+      var c = shade, r = tn(4,x,y,2);
+      if(r > 0.85) c = '#7d6342'; else if(r < 0.12) c = '#4a3318';
+      px(4,x,y,c);
+    }
+  }
+  var gr=[2,6,10,13];
+  for(var g2=0; g2<gr.length; g2++) for(var y2=0;y2<16;y2++)
+    if(tn(4,gr[g2],y2,3) > 0.25) px(4,gr[g2],y2,'#43300f');
+  px(4,4,5,'#3a2a0e'); px(4,5,5,'#43300f'); px(4,4,6,'#43300f');
+  px(4,11,11,'#3a2a0e'); px(4,12,11,'#43300f');
+})();
+(function(){
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++){
+    var d = Math.max(Math.abs(x-7.5), Math.abs(y-7.5)), c;
+    if(d > 6.5) c = tn(5,x,y,1) > 0.5 ? '#6b5232' : '#5f4729';
+    else {
+      c = (Math.floor(d) % 2 === 0) ? '#b08a4a' : '#9a7438';
+      if(tn(5,x,y,2) > 0.85) c = '#c09a58';
+      if(d < 1.2) c = '#8a6630';
+    }
+    px(5,x,y,c);
+  }
+})();
+(function(){ var g=['#3f7d26','#356d1e','#48892d','#2e6118'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(6,x,y, pick(g, tn(6,x,y,1)));
+  for(var i=0;i<14;i++) px(6, Math.floor(tn(6,i,5,2)*16), Math.floor(tn(6,i,11,3)*16), '#1d4210');
+  for(var h=0;h<8;h++) px(6, Math.floor(tn(6,h,17,4)*16), Math.floor(tn(6,h,23,5)*16), '#5aa03a');
+})();
+(function(){ var s2=['#decfa0','#d6c794','#e5d8ac','#cfbf88'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(7,x,y, pick(s2, tn(7,x,y,1)));
+  for(var i=0;i<6;i++){
+    var wx = Math.floor(tn(7,i,7,2)*13), wy = Math.floor(tn(7,i,13,3)*15);
+    px(7,wx,wy,'#c2b178'); px(7,wx+1,wy,'#c2b178'); px(7,wx+2,wy,'#cab97f');
+  }
+  for(var s3=0;s3<5;s3++) px(7, Math.floor(tn(7,s3,21,4)*16), Math.floor(tn(7,s3,27,5)*16), '#f0e4ba');
+})();
+(function(){ var bs=['#b08c50','#a8854a','#b6915a','#a07e44'];
+  for(var b=0;b<4;b++){
+    var base = bs[b];
+    for(var x=0;x<16;x++) for(var y=b*4; y<b*4+4; y++){
+      var c = base, r = tn(8,x,y,1);
+      if(r > 0.88) c = '#c29c62'; else if(r < 0.10) c = '#94733c';
+      px(8,x,y,c);
+    }
+    for(var m=0;m<2;m++){
+      var mx = Math.floor(tn(8,b,m*9,2)*10), my = b*4+1+Math.floor(tn(8,b,m*5,3)*2);
+      px(8,mx,my,'#8d6c36'); px(8,mx+1,my,'#8d6c36'); px(8,mx+2,my,'#94733c');
+    }
+    for(var fx2=0; fx2<16; fx2++) px(8,fx2,b*4+3,'#6e5226');
+    var endX = (b % 2 === 0) ? 5 : 11;
+    px(8,endX,b*4,'#6e5226'); px(8,endX,b*4+1,'#6e5226'); px(8,endX,b*4+2,'#6e5226');
+    px(8, endX > 8 ? endX-2 : endX+2, b*4+1, '#7d6233');
+  }
+})();
+
+/* Tile 9: Werkbank Oberseite (Raster) */
+(function(){
+  var bs = ['#b08c50','#a8854a','#b6915a'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(9,x,y, pick(bs, tn(9,x,y,1)));
+  // Rasterlinien
+  for(var i=0;i<16;i++){ px(9,i,0,'#6e5226'); px(9,i,15,'#6e5226'); px(9,0,i,'#6e5226'); px(9,15,i,'#6e5226'); px(9,8,i,'#6e5226'); px(9,i,8,'#6e5226'); }
+  // kleine Vertiefungen in den vier Feldern
+  [[3,3],[11,3],[3,11],[11,11]].forEach(function(p){ px(9,p[0],p[1],'#7d6233'); px(9,p[0]+1,p[1],'#94733c'); });
+})();
+/* Tile 10: Werkbank Seite (Bretter + Säge/Werkzeug-Andeutung) */
+(function(){
+  var bs = ['#a8854a','#9c7a40','#b08c50'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(10,x,y, pick(bs, tn(10,x,y,1)));
+  for(var i=0;i<16;i++){ px(10,i,0,'#6e5226'); px(10,i,7,'#6e5226'); px(10,i,15,'#5c4420'); }
+  // Säge-Andeutung
+  for(var sx=3;sx<13;sx++) px(10,sx,4,'#cfd2d6');
+  for(var t=3;t<13;t+=2) px(10,t,5,'#cfd2d6');
+  px(10,3,3,'#6b4a26'); px(10,3,2,'#6b4a26');
+})();
+
+/* Tile 11: Kohleerz (Stein mit schwarzen Brocken) */
+(function(){
+  var bs = ['#8a8a8a','#7e7e7e','#949494','#888888'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(11,x,y, pick(bs, tn(11,x,y,1)));
+  // Kohlebrocken
+  var spots = [[3,4],[4,4],[3,5],[9,3],[10,3],[10,4],[5,10],[6,10],[6,11],[11,11],[12,11],[2,11]];
+  spots.forEach(function(p){ px(11,p[0],p[1],'#222'); px(11,p[0]+1,p[1],'#333'); px(11,p[0],p[1]+1,'#1a1a1a'); });
+})();
+/* Tile 12: Ofen Seite/Oben (Bruchstein) */
+(function(){
+  var bs = ['#7c7c7c','#6f6f6f','#868686','#767676'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(12,x,y, pick(bs, tn(12,x,y,1)));
+  // Bruchstein-Fugen
+  for(var i=0;i<16;i++){ px(12,i,5,'#5a5a5a'); px(12,i,11,'#5a5a5a'); }
+  for(var j=0;j<16;j++){ px(12,5,j,'#5a5a5a'); px(12,11,j,'#5a5a5a'); }
+})();
+/* Tile 13: Ofen Front (Bruchstein mit Öffnung) */
+(function(){
+  var bs = ['#7c7c7c','#6f6f6f','#868686'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(13,x,y, pick(bs, tn(13,x,y,1)));
+  // dunkle Brennkammer
+  for(var x2=4;x2<12;x2++) for(var y2=7;y2<13;y2++) px(13,x2,y2, (y2>10? '#3a2a14':'#1a1a1a'));
+  // Glut unten
+  for(var gx=5;gx<11;gx++){ px(13,gx,12,'#e0772a'); px(13,gx,11,'#b8551c'); }
+  // Rahmen oben
+  for(var fx=3;fx<13;fx++) px(13,fx,5,'#5a5a5a');
+})();
+/* Tile 14: Wolle (weiß, leicht flauschig) */
+(function(){
+  var bs = ['#eeeeee','#e2e2e2','#f4f4f4','#e8e8e8'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(14,x,y, pick(bs, tn(14,x,y,1)));
+  for(var k=0;k<10;k++){ var rx=Math.floor(tn(14,k,3,2)*16), ry=Math.floor(tn(14,k,7,3)*16); px(14,rx,ry,'#d4d4d4'); }
+})();
+
+/* Apfel-Icon (eigenes Canvas) */
+var appleCv = document.createElement('canvas');
+appleCv.width = 16; appleCv.height = 16;
+(function(){
+  var a = appleCv.getContext('2d');
+  function ap(x,y,c){ a.fillStyle=c; a.fillRect(x,y,1,1); }
+  var body = [
+    '....GG..........','.....G..........','....SS..........',
+    '..RRRRRRRR......','.RRRRRRRRRR.....','.RRLRRRRRRR.....',
+    'RRLLRRRRRRRR....','RRLRRRRRRRRR....','RRRRRRRRRRRR....',
+    'RRRRRRRRRRRR....','.RRRRRRRRRR.....','.RRRRRRRRRR.....',
+    '..RRR..RRR......','................','................','................'
+  ];
+  for(var y=0;y<16;y++) for(var x=0;x<16;x++){
+    var ch = body[y][x];
+    if(ch==='R') ap(x+2,y,'#d6342c');
+    else if(ch==='L') ap(x+2,y,'#f07a72');
+    else if(ch==='G') ap(x+2,y,'#4e8a2e');
+    else if(ch==='S') ap(x+2,y,'#6b4a26');
+  }
+})();
+
+/* Stock-Icon */
+var stickCv = document.createElement('canvas');
+stickCv.width = 16; stickCv.height = 16;
+(function(){
+  var a = stickCv.getContext('2d');
+  function ap(x,y,c){ a.fillStyle=c; a.fillRect(x,y,1,1); }
+  for(var i=0;i<9;i++){ var y=3+i, x=11-i; ap(x,y,'#7d5a2c'); ap(x+1,y,'#9a7440'); ap(x,y+1,'#5f4420'); }
+})();
+
+/* Werkzeug-Icons: generisch aus Kopffarbe + Typ erzeugen */
+var toolCv = {};
+function buildTool(id, type, headCol, headDark){
+  var cv = document.createElement('canvas'); cv.width = 16; cv.height = 16;
+  var a = cv.getContext('2d');
+  function ap(x,y,c){ if(x<0||y<0||x>15||y>15) return; a.fillStyle=c; a.fillRect(x,y,1,1); }
+  // Stiel (diagonal von unten-links nach oben-rechts)
+  for(var i=0;i<9;i++){ var sx=4+i, sy=11-i; ap(sx,sy,'#7d5a2c'); ap(sx,sy+1,'#5f4420'); }
+  function fillHead(cells){ cells.forEach(function(p){ ap(p[0],p[1],headCol); }); }
+  function edge(cells){ cells.forEach(function(p){ ap(p[0],p[1],headDark); }); }
+  if(type === 'pick'){
+    fillHead([[9,1],[10,1],[11,1],[12,2],[13,2],[8,2],[7,3]]);
+    edge([[6,4],[14,3]]);
+  } else if(type === 'axe'){
+    fillHead([[10,1],[11,1],[12,1],[10,2],[11,2],[12,2],[10,3],[11,3],[13,2]]);
+    edge([[9,2],[9,3]]);
+  } else if(type === 'shovel'){
+    fillHead([[11,1],[12,1],[11,2],[12,2],[11,3],[12,3]]);
+    edge([[10,1],[13,1],[10,3],[13,3]]);
+  } else if(type === 'sword'){
+    // Klinge diagonal, andere Richtung
+    for(var j=0;j<7;j++){ var bx=12-j, by=2+j; ap(bx,by,headCol); ap(bx-1,by,headDark); }
+    ap(5,11,'#6b4a26'); ap(6,10,'#6b4a26'); ap(4,12,'#5f4420'); // Griff
+    ap(6,11,'#8a8a8a'); ap(7,10,'#8a8a8a');                      // Parierstange
+  }
+  toolCv[id] = cv;
+}
+buildTool(WPICK,'pick','#b08c50','#8d6c36');   buildTool(SPICK,'pick','#9a9a9a','#6e6e6e');
+buildTool(WAXE,'axe','#b08c50','#8d6c36');     buildTool(SAXE,'axe','#9a9a9a','#6e6e6e');
+buildTool(WSHOVEL,'shovel','#b08c50','#8d6c36'); buildTool(SSHOVEL,'shovel','#9a9a9a','#6e6e6e');
+buildTool(WSWORD,'sword','#b08c50','#8d6c36');  buildTool(SSWORD,'sword','#9a9a9a','#6e6e6e');
+
+/* einfache, kompakte Item-Icons (Klecks-Form mit Farben) */
+var itemCv = {};
+function buildBlob(id, cells, palette){
+  var cv = document.createElement('canvas'); cv.width=16; cv.height=16;
+  var a = cv.getContext('2d');
+  for(var y=0;y<cells.length;y++) for(var x=0;x<cells[y].length;x++){
+    var ch = cells[y][x];
+    if(ch !== ' ' && palette[ch]){ a.fillStyle = palette[ch]; a.fillRect(x+2, y+2, 1, 1); }
+  }
+  itemCv[id] = cv;
+}
+// Kohle (schwarzer Klumpen)
+buildBlob(COAL, [
+  '        ','   KK   ',' KKKKK  ','KKKKLKK ','KKLKKKK ','KKKKKK  ',' KKKK   ','        '
+], {K:'#2a2a2a', L:'#555'});
+// Rohes Rindfleisch (rosa Stück)
+buildBlob(RAW_BEEF, [
+  '        ',' RRRR   ','RRPRRR  ','RPRRRRR ','RRRRPR  ','RRRRR   ',' RRR    ','        '
+], {R:'#d56a6a', P:'#e8a0a0'});
+// Steak (braun gebraten)
+buildBlob(COOKED_BEEF, [
+  '        ',' BBBB   ','BBSBBB  ','BSBBBBB ','BBBBSB  ','BBBBB   ',' BBB    ','        '
+], {B:'#7a4a26', S:'#9c6a3c'});
+// Rohes Hammelfleisch (helleres rosa)
+buildBlob(RAW_MUTTON, [
+  '        ','  RRR   ',' RRPRR  ','RRRRRRR ',' RRPRR  ',' RRRR   ','        ','        '
+], {R:'#e07f8a', P:'#f0aab0'});
+// Gebratenes Hammelfleisch
+buildBlob(COOKED_MUTTON, [
+  '        ','  BBB   ',' BBSBB  ','BBBBBBB ',' BBSBB  ',' BBBB   ','        ','        '
+], {B:'#86532c', S:'#a8743f'});
+// Leder (braunes Stück)
+buildBlob(LEATHER, [
+  '        ',' LLLLL  ','LLLLLLL ','LLDLLLL ','LLLLDL  ','LLLLLL  ',' LLLLL  ','        '
+], {L:'#9c6b3f', D:'#7d5430'});
+
+var atlasTex = new THREE.CanvasTexture(atlasCv);
+atlasTex.magFilter = THREE.NearestFilter;
+atlasTex.minFilter = THREE.NearestFilter;
+
+var blockTiles = {};
+blockTiles[GRASS]=[0,2,1]; blockTiles[DIRT]=[2,2,2]; blockTiles[STONE]=[3,3,3];
+blockTiles[WOOD]=[5,5,4]; blockTiles[LEAVES]=[6,6,6]; blockTiles[SAND]=[7,7,7];
+blockTiles[PLANK]=[8,8,8]; blockTiles[BENCH]=[9,8,10];
+blockTiles[COAL_ORE]=[11,11,11]; blockTiles[FURNACE]=[12,12,13]; blockTiles[WOOL]=[14,14,14];
+
+function drawItemIcon(ctx2, id){
+  ctx2.clearRect(0,0,16,16);
+  if(id === APPLE) ctx2.drawImage(appleCv, 0, 0);
+  else if(id === STICK) ctx2.drawImage(stickCv, 0, 0);
+  else if(toolCv[id]) ctx2.drawImage(toolCv[id], 0, 0);
+  else if(itemCv[id]) ctx2.drawImage(itemCv[id], 0, 0);
+  else if(blockTiles[id]) ctx2.drawImage(atlasCv, blockTiles[id][2]*TPX, 0, TPX, TPX, 0, 0, 16, 16);
+}
+
+/* ============ Three.js ============ */
+var canvas = document.getElementById('game');
+var renderer = new THREE.WebGLRenderer({ canvas:canvas, antialias:false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8fc9eb);
+scene.fog = new THREE.Fog(0x8fc9eb, 40, 74);
+var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 400);
+var blockMat = new THREE.MeshBasicMaterial({ map:atlasTex, vertexColors:true });
+/* Standard-Nebel in three.js nutzt die Tiefe senkrecht zur Kamera. Dadurch
+   dreht sich die Nebelwand mit der Blickrichtung mit (der "Kreis ums
+   Fadenkreuz" Effekt). Wir patchen den globalen fog_vertex Shader-Baustein
+   einmalig auf die echte radiale Distanz, sodass der Nebel als feste Kugel an
+   der Render-Distanz sitzt, egal wohin man schaut. Greift für alle Materialien
+   gleichermaßen (Blöcke und Spieler-Avatare). */
+(function(){
+  var fv = THREE.ShaderChunk.fog_vertex;
+  if(fv && /mvPosition\.z/.test(fv)){
+    THREE.ShaderChunk.fog_vertex = fv.replace(/-\s*mvPosition\.z/, 'length( mvPosition.xyz )');
+  }
+})();
+
+/* ============ Meshing ============ */
+var FACES = [
+  { d:[1,0,0],  c:[[1,0,1],[1,0,0],[1,1,0],[1,1,1]], l:0.80, s:2 },
+  { d:[-1,0,0], c:[[0,0,0],[0,0,1],[0,1,1],[0,1,0]], l:0.80, s:2 },
+  { d:[0,1,0],  c:[[0,1,1],[1,1,1],[1,1,0],[0,1,0]], l:1.00, s:0 },
+  { d:[0,-1,0], c:[[0,0,0],[1,0,0],[1,0,1],[0,0,1]], l:0.55, s:1 },
+  { d:[0,0,1],  c:[[0,0,1],[1,0,1],[1,1,1],[0,1,1]], l:0.65, s:2 },
+  { d:[0,0,-1], c:[[1,0,0],[0,0,0],[0,1,0],[1,1,0]], l:0.65, s:2 }
+];
+var FUV = [[0,0],[1,0],[1,1],[0,1]];
+
+function buildMesh(c){
+  if(c.mesh){ scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; }
+  var pos=[], uv=[], col=[], ind=[];
+  var v = 0;
+  var x0 = c.cx*CHUNK, z0 = c.cz*CHUNK;
+  for(var lx=0; lx<CHUNK; lx++)
+  for(var lz=0; lz<CHUNK; lz++)
+  for(var y=0; y<SY; y++){
+    var b = c.b[bIdx(lx,y,lz)];
+    if(b === AIR) continue;
+    var x = x0+lx, z = z0+lz;
+    var tiles = blockTiles[b];
+    for(var f=0; f<6; f++){
+      var F = FACES[f];
+      var nb = getB(x+F.d[0], y+F.d[1], z+F.d[2]);
+      if(!(nb === AIR || (nb === LEAVES && b !== LEAVES))) continue;
+      var tile = tiles[F.s];
+      var u0 = tile/TILES, u1 = (tile+1)/TILES;
+      for(var k=0; k<4; k++){
+        var cn = F.c[k];
+        pos.push(x+cn[0], y+cn[1], z+cn[2]);
+        uv.push(u0 + FUV[k][0]*(u1-u0), FUV[k][1]);
+        col.push(F.l, F.l, F.l);
+      }
+      ind.push(v, v+1, v+2, v, v+2, v+3);
+      v += 4;
+    }
+  }
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.setIndex(ind);
+  c.mesh = new THREE.Mesh(geo, blockMat);
+  scene.add(c.mesh);
+}
+function unloadMesh(c){
+  if(c.mesh){ scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; }
+}
+
+var buildQueue = [], queued = {};
+var lastPCX = -999, lastPCZ = -999;
+function updateChunks(force){
+  var pcx = Math.floor(player.pos.x / CHUNK);
+  var pcz = Math.floor(player.pos.z / CHUNK);
+  if(!force && pcx === lastPCX && pcz === lastPCZ) return;
+  lastPCX = pcx; lastPCZ = pcz;
+  var RD = settings.dist;
+  var list = [];
+  for(var dx=-RD; dx<=RD; dx++) for(var dz=-RD; dz<=RD; dz++){
+    var cx = pcx+dx, cz = pcz+dz;
+    if(!chunkInWorld(cx,cz)) continue;
+    var k = ckey(cx,cz);
+    var c = chunks[k];
+    if((!c || !c.mesh) && !queued[k]){
+      list.push({ cx:cx, cz:cz, d:dx*dx+dz*dz });
+      queued[k] = true;
+    }
+  }
+  list.sort(function(a,b){ return a.d - b.d; });
+  for(var i=0; i<list.length; i++) buildQueue.push(list[i]);
+  var lim = RD + 2;
+  for(var k2 in chunks){
+    var c2 = chunks[k2];
+    if(c2.mesh && (Math.abs(c2.cx-pcx) > lim || Math.abs(c2.cz-pcz) > lim)) unloadMesh(c2);
+  }
+}
+function processQueue(budget){
+  while(budget-- > 0 && buildQueue.length){
+    var job = buildQueue.shift();
+    delete queued[ckey(job.cx, job.cz)];
+    var pcx = Math.floor(player.pos.x / CHUNK);
+    var pcz = Math.floor(player.pos.z / CHUNK);
+    if(Math.abs(job.cx-pcx) > settings.dist || Math.abs(job.cz-pcz) > settings.dist) continue;
+    buildMesh(getChunk(job.cx, job.cz));
+  }
+}
+function rebuildAt(x,z){
+  var cx = x >> 4, cz = z >> 4;
+  buildMesh(getChunk(cx,cz));
+  var lx = x & 15, lz = z & 15, c;
+  if(lx === 0  && chunkInWorld(cx-1,cz)){ c=chunks[ckey(cx-1,cz)]; if(c && c.mesh) buildMesh(c); }
+  if(lx === 15 && chunkInWorld(cx+1,cz)){ c=chunks[ckey(cx+1,cz)]; if(c && c.mesh) buildMesh(c); }
+  if(lz === 0  && chunkInWorld(cx,cz-1)){ c=chunks[ckey(cx,cz-1)]; if(c && c.mesh) buildMesh(c); }
+  if(lz === 15 && chunkInWorld(cx,cz+1)){ c=chunks[ckey(cx,cz+1)]; if(c && c.mesh) buildMesh(c); }
+}
+function unloadAllChunks(){
+  for(var k in chunks) unloadMesh(chunks[k]);
+  chunks = {};
+  buildQueue = []; queued = {};
+  lastPCX = -999;
+}
+
+var highlight = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002)),
+  new THREE.LineBasicMaterial({ color:0x000000, transparent:true, opacity:0.6 })
+);
+highlight.visible = false;
+scene.add(highlight);
+
+/* ============ Spieler & Status ============ */
+var player = {
+  pos: new THREE.Vector3(WORLD_BLOCKS/2 + 0.5, 40, WORLD_BLOCKS/2 + 0.5),
+  vel: new THREE.Vector3(),
+  yaw: 0, pitch: 0,
+  onGround: false,
+  w: 0.3, h: 1.8, eye: 1.62
+};
+var gameMode = 'survival';
+var flying = false;
+var inGame = false, paused = false, invOpen = false;
+var health = 20, hunger = 20;     // jeweils 0..20 (halbe Einheiten)
+var fallPeak = 0;
+var hungerDrain = 0, regenTimer = 0, starveTimer = 0;
+
+function spawnHeight(){
+  var sx = Math.floor(player.pos.x), sz = Math.floor(player.pos.z);
+  for(var y=SY-1; y>0; y--){
+    if(getB(sx,y,sz) !== AIR){ player.pos.y = y + 1.01; return; }
+  }
+}
+function collides(p){
+  var minX = Math.floor(p.x - player.w), maxX = Math.floor(p.x + player.w);
+  var minY = Math.floor(p.y), maxY = Math.floor(p.y + player.h);
+  var minZ = Math.floor(p.z - player.w), maxZ = Math.floor(p.z + player.w);
+  for(var x=minX; x<=maxX; x++)
+  for(var y=minY; y<=maxY; y++)
+  for(var z=minZ; z<=maxZ; z++){
+    if(getB(x,y,z) !== AIR) return true;
+  }
+  return false;
+}
+function damage(d){
+  if(gameMode === 'creative') return;
+  health = Math.max(0, health - d);
+  statsDirty = true;
+  if(health <= 0) die();
+}
+function die(){
+  showToast('Du bist gestorben');
+  health = 20; hunger = 20;
+  statsDirty = true;
+  player.pos.set(WORLD_BLOCKS/2 + 0.5, 40, WORLD_BLOCKS/2 + 0.5);
+  player.vel.set(0,0,0);
+  spawnHeight();
+  lastPCX = -999;
+  updateChunks(true);
+}
+
+/* ============ Inventar ============ */
+var slots = new Array(TOTAL_SLOTS).fill(null);   // {id, count}
+var selected = 0;
+
+function addItem(id, count){
+  var ms = maxStack(id);
+  // erst auf bestehende Stacks
+  for(var i=0; i<SLOTS_N && count>0; i++){
+    var s = slots[i];
+    if(s && s.id === id && s.count < ms){
+      var take = Math.min(ms - s.count, count);
+      s.count += take; count -= take;
+    }
+  }
+  // dann leere Slots (Hotbar zuerst)
+  for(var j=0; j<SLOTS_N && count>0; j++){
+    if(!slots[j]){
+      var put = Math.min(ms, count);
+      slots[j] = { id:id, count:put };
+      count -= put;
+    }
+  }
+  invDirty = true;
+  return count; // Rest der nicht reinpasst
+}
+function consumeSelected(){
+  var s = slots[selected];
+  if(!s) return;
+  s.count--;
+  if(s.count <= 0) slots[selected] = null;
+  invDirty = true;
+}
+
+/* ============ HUD: Hotbar ============ */
+var hotbarEl = document.getElementById('hotbar');
+var slotCtx = [];
+for(var hi=0; hi<HOTBAR_N; hi++){
+  (function(i){
+    var slot = document.createElement('div');
+    slot.className = 'slot' + (i===0 ? ' active' : '');
+    var cv = document.createElement('canvas');
+    cv.width = 16; cv.height = 16;
+    slot.appendChild(cv);
+    var num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = (i+1) % 10;
+    slot.appendChild(num);
+    var cnt = document.createElement('span');
+    cnt.className = 'cnt';
+    slot.appendChild(cnt);
+    slot.addEventListener('click', function(){ selectSlot(i); });
+    slot.addEventListener('touchstart', function(e){ e.preventDefault(); selectSlot(i); });
+    hotbarEl.appendChild(slot);
+    slotCtx.push({ el:slot, ctx:cv.getContext('2d'), cnt:cnt });
+  })(hi);
+}
+var invDirty = true;
+function renderHotbar(){
+  for(var i=0; i<HOTBAR_N; i++){
+    var s = slots[i];
+    slotCtx[i].ctx.clearRect(0,0,16,16);
+    if(s){
+      drawItemIcon(slotCtx[i].ctx, s.id);
+      slotCtx[i].cnt.textContent = (gameMode === 'creative') ? '' : (s.count > 1 ? s.count : '');
+    } else slotCtx[i].cnt.textContent = '';
+    slotCtx[i].el.classList.toggle('active', i === selected);
+  }
+}
+function selectSlot(i){ selected = i; invDirty = true; }
+
+/* ============ HUD: Leben & Hunger ============ */
+var statsCv = document.getElementById('statsCv');
+var statsCtx = statsCv.getContext('2d');
+var statsDirty = true;
+statsCtx.imageSmoothingEnabled = false;
+
+function drawHeart(x,y,fill){
+  var c = statsCtx;
+  function p(ox,oy,col){ c.fillStyle=col; c.fillRect(x+ox*2, y+oy*2, 2, 2); }
+  var shape = [[1,0],[2,0],[4,0],[5,0],
+               [0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],
+               [0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],
+               [1,3],[2,3],[3,3],[4,3],[5,3],
+               [2,4],[3,4],[4,4],
+               [3,5]];
+  for(var i=0;i<shape.length;i++){
+    var sx = shape[i][0], sy = shape[i][1];
+    var col = '#3a3a3a';                                   // leer
+    if(fill >= 1 || (fill >= 0.5 && sx <= 3)) col = '#e3393c';
+    p(sx, sy, col);
+  }
+  // Glanzpunkt
+  if(fill >= 0.5){ c.fillStyle='#ff8a8c'; c.fillRect(x+2, y+2, 2, 2); }
+}
+function drawFood(x,y,fill){
+  var c = statsCtx;
+  function p(ox,oy,col){ c.fillStyle=col; c.fillRect(x+ox*2, y+oy*2, 2, 2); }
+  var meat = [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[1,3],[2,3],[3,3]];
+  var bone = [[4,3],[5,4],[4,4],[5,5],[6,5],[6,4]];
+  var on = fill >= 1 || fill >= 0.5;
+  for(var i=0;i<meat.length;i++){
+    var mx2 = meat[i][0], my2 = meat[i][1];
+    var col = '#3a3a3a';
+    if(fill >= 1 || (fill >= 0.5 && mx2 <= 2)) col = '#b5652a';
+    p(mx2,my2,col);
+  }
+  for(var j=0;j<bone.length;j++){
+    p(bone[j][0], bone[j][1], on ? '#e8dcc8' : '#3a3a3a');
+  }
+  if(fill >= 1){ c.fillStyle='#d98a4a'; c.fillRect(x+2, y+2, 2, 2); }
+}
+function renderStats(){
+  statsCtx.clearRect(0,0,statsCv.width,statsCv.height);
+  for(var i=0;i<10;i++){
+    var hv = health/2 - i;
+    drawHeart(i*18, 6, hv >= 1 ? 1 : (hv >= 0.5 ? 0.5 : 0));
+  }
+  for(var j=0;j<10;j++){
+    var fv = hunger/2 - (9-j);
+    drawFood(statsCv.width - 180 + j*18, 6, fv >= 1 ? 1 : (fv >= 0.5 ? 0.5 : 0));
+  }
+}
+
+/* ============ Inventar-UI ============ */
+var scrInv = document.getElementById('scrInv');
+var cursorItem = null;     // {id,count}
+var cursorEl = document.getElementById('cursorItem');
+var cursorCtx = cursorEl.querySelector('canvas').getContext('2d');
+var tableOpen = false;     // ist gerade das 3x3 Werkbankgitter aktiv?
+var CREATIVE_ITEMS = [GRASS, DIRT, STONE, COAL_ORE, WOOD, LEAVES, SAND, PLANK, BENCH, FURNACE, WOOL,
+  APPLE, STICK, COAL, LEATHER, RAW_BEEF, COOKED_BEEF, RAW_MUTTON, COOKED_MUTTON,
+  WPICK, WAXE, WSHOVEL, WSWORD, SPICK, SAXE, SSHOVEL, SSWORD];
+
+/* ---------- Rezepte ----------
+   shapeless: genaue Item-Mengen, Position egal.
+   shaped: Muster (Symbol-Zeilen), wird auf die Bounding-Box zugeschnitten
+   verglichen, auch horizontal gespiegelt. */
+var RECIPES = [
+  { shapeless:true, ing:[[WOOD,1]], out:{id:PLANK, count:4} },
+  { shapeless:true, ing:[[PLANK,2]], out:{id:STICK, count:4} },
+  { shaped:[['P','P'],['P','P']], key:{P:PLANK}, out:{id:BENCH, count:1} },
+  // Ofen: 8 Stein im Ring (3x3 mit leerer Mitte)
+  { shaped:[['C','C','C'],['C','','C'],['C','C','C']], key:{C:STONE}, out:{id:FURNACE, count:1} },
+  // Werkzeuge (3x3): M = Material (Bretter oder Stein), S = Stock
+  { shaped:[['M','M','M'],['','S',''],['','S','']], key:{M:PLANK,S:STICK}, out:{id:WPICK, count:1} },
+  { shaped:[['M','M','M'],['','S',''],['','S','']], key:{M:STONE,S:STICK}, out:{id:SPICK, count:1} },
+  { shaped:[['M','M'],['M','S'],['','S']], key:{M:PLANK,S:STICK}, out:{id:WAXE, count:1} },
+  { shaped:[['M','M'],['M','S'],['','S']], key:{M:STONE,S:STICK}, out:{id:SAXE, count:1} },
+  { shaped:[['M'],['S'],['S']], key:{M:PLANK,S:STICK}, out:{id:WSHOVEL, count:1} },
+  { shaped:[['M'],['S'],['S']], key:{M:STONE,S:STICK}, out:{id:SSHOVEL, count:1} },
+  { shaped:[['M'],['M'],['S']], key:{M:PLANK,S:STICK}, out:{id:WSWORD, count:1} },
+  { shaped:[['M'],['M'],['S']], key:{M:STONE,S:STICK}, out:{id:SSWORD, count:1} }
+];
+
+function gridFromSlots(base, w, h){
+  var g = [];
+  for(var y=0; y<h; y++){ var row = []; for(var x=0; x<w; x++){ var s = slots[base + y*w + x]; row.push(s ? s.id : 0); } g.push(row); }
+  return g;
+}
+function trimGrid(g){
+  var minR=99,maxR=-1,minC=99,maxC=-1;
+  for(var y=0;y<g.length;y++) for(var x=0;x<g[y].length;x++) if(g[y][x]){ if(y<minR)minR=y; if(y>maxR)maxR=y; if(x<minC)minC=x; if(x>maxC)maxC=x; }
+  if(maxR<0) return [];
+  var out=[];
+  for(var r=minR;r<=maxR;r++){ var row=[]; for(var c=minC;c<=maxC;c++) row.push(g[r][c]); out.push(row); }
+  return out;
+}
+function patternToIds(pat, key){
+  return pat.map(function(row){ return row.map(function(sym){ return sym ? key[sym] : 0; }); });
+}
+function gridsEqual(a, b){
+  if(a.length !== b.length) return false;
+  for(var y=0;y<a.length;y++){ if(a[y].length !== b[y].length) return false; for(var x=0;x<a[y].length;x++) if(a[y][x] !== b[y][x]) return false; }
+  return true;
+}
+function mirror(g){ return g.map(function(row){ return row.slice().reverse(); }); }
+function countItems(g){
+  var m = {};
+  for(var y=0;y<g.length;y++) for(var x=0;x<g[y].length;x++){ var id=g[y][x]; if(id) m[id]=(m[id]||0)+1; }
+  return m;
+}
+function matchRecipe(g){
+  var trimmed = trimGrid(g);
+  if(!trimmed.length) return null;
+  var counts = countItems(g);
+  var nKinds = Object.keys(counts).length;
+  for(var i=0;i<RECIPES.length;i++){
+    var rec = RECIPES[i];
+    if(rec.shapeless){
+      // exakte Mengen
+      if(rec.ing.length !== nKinds) continue;
+      var ok = true;
+      for(var k=0;k<rec.ing.length;k++){ var id=rec.ing[k][0], n=rec.ing[k][1]; if(counts[id] !== n){ ok=false; break; } }
+      if(ok) return rec.out;
+    } else {
+      var pat = patternToIds(rec.shaped, rec.key);
+      if(gridsEqual(trimmed, pat) || gridsEqual(trimmed, mirror(pat))) return rec.out;
+    }
+  }
+  return null;
+}
+
+function craftCfg(){
+  return tableOpen ? { base:TABLE_0, result:TABLE_RESULT, w:3, h:3 }
+                   : { base:CRAFT_0, result:CRAFT_RESULT, w:2, h:2 };
+}
+function computeCraft(){
+  var cfg = craftCfg();
+  slots[cfg.result] = matchRecipe(gridFromSlots(cfg.base, cfg.w, cfg.h));
+}
+function takeCraft(){
+  var cfg = craftCfg();
+  var res = slots[cfg.result];
+  if(!res) return;
+  var ms = maxStack(res.id);
+  if(cursorItem && (cursorItem.id !== res.id || cursorItem.count + res.count > ms)) return;
+  if(!cursorItem) cursorItem = { id:res.id, count:0 };
+  cursorItem.count += res.count;
+  for(var i=0; i<cfg.w*cfg.h; i++){
+    var s = slots[cfg.base + i];
+    if(s){ s.count--; if(s.count <= 0) slots[cfg.base + i] = null; }
+  }
+  computeCraft();
+  invDirty = true;
+  renderInvUI(); renderCursor();
+}
+
+function buildInvUI(){
+  var grid = document.getElementById('invGrid');
+  var hot = document.getElementById('invHotbarRow');
+  var pal = document.getElementById('creativePalette');
+  var armor = document.getElementById('armorCol');
+  var craft = document.getElementById('craftGrid');
+  var result = document.getElementById('craftResult');
+  var tgrid = document.getElementById('tableGrid');
+  var tresult = document.getElementById('tableResult');
+  grid.innerHTML = ''; hot.innerHTML = ''; pal.innerHTML = '';
+  armor.innerHTML = ''; craft.innerHTML = ''; result.innerHTML = '';
+  tgrid.innerHTML = ''; tresult.innerHTML = '';
+  for(var i=HOTBAR_N; i<SLOTS_N; i++) grid.appendChild(makeInvSlot(i));
+  for(var j=0; j<HOTBAR_N; j++) hot.appendChild(makeInvSlot(j));
+  for(var c=CRAFT_0; c<CRAFT_RESULT; c++) craft.appendChild(makeInvSlot(c));
+  result.appendChild(makeInvSlot(CRAFT_RESULT));
+  for(var t=TABLE_0; t<TABLE_RESULT; t++) tgrid.appendChild(makeInvSlot(t));
+  tresult.appendChild(makeInvSlot(TABLE_RESULT));
+  document.getElementById('furInSlot').appendChild(makeInvSlot(FUR_IN));
+  document.getElementById('furFuelSlot').appendChild(makeInvSlot(FUR_FUEL));
+  document.getElementById('furOutSlot').appendChild(makeInvSlot(FUR_OUT));
+  for(var a=ARMOR_0; a<ARMOR_END; a++) armor.appendChild(makeInvSlot(a));
+  CREATIVE_ITEMS.forEach(function(id){
+    var d = document.createElement('div');
+    d.className = 'islot';
+    var cv = document.createElement('canvas');
+    cv.width = 16; cv.height = 16;
+    drawItemIcon(cv.getContext('2d'), id);
+    d.appendChild(cv);
+    d.addEventListener('click', function(){
+      cursorItem = { id:id, count:maxStack(id) };
+      renderCursor();
+    });
+    pal.appendChild(d);
+  });
+}
+
+/* Platzhalter-Silhouetten für leere Rüstungsslots */
+function drawArmorPh(ctx2, type){
+  ctx2.clearRect(0,0,16,16);
+  ctx2.fillStyle = '#6f6f6f';
+  function r(x,y,w,h){ ctx2.fillRect(x,y,w,h); }
+  if(type === 0){ r(4,4,8,3); r(4,7,2,3); r(10,7,2,3); r(5,3,6,1); }
+  else if(type === 1){ r(4,3,8,2); r(3,5,10,5); r(5,10,6,3); r(3,3,1,3); r(12,3,1,3); }
+  else if(type === 2){ r(4,3,8,3); r(4,6,3,7); r(9,6,3,7); }
+  else { r(4,5,3,5); r(9,5,3,5); r(4,10,4,2); r(9,10,4,2); }
+}
+var invSlotEls = {};
+function makeInvSlot(idx){
+  var d = document.createElement('div');
+  d.className = 'islot';
+  var cv = document.createElement('canvas');
+  cv.width = 16; cv.height = 16;
+  d.appendChild(cv);
+  var cnt = document.createElement('span');
+  cnt.className = 'cnt';
+  d.appendChild(cnt);
+
+  var lpTimer = null, suppressClick = false;
+  d.addEventListener('click', function(){
+    if(suppressClick){ suppressClick = false; return; }  // war ein Langdruck
+    invSlotClick(idx);
+  });
+  // PC: Rechtsklick halbiert / legt einzeln ab
+  d.addEventListener('contextmenu', function(e){ e.preventDefault(); splitClick(idx); });
+  // Handy: langes Drücken halbiert
+  d.addEventListener('touchstart', function(){
+    if(lpTimer) clearTimeout(lpTimer);
+    suppressClick = false;
+    lpTimer = setTimeout(function(){
+      lpTimer = null; suppressClick = true;
+      splitClick(idx);
+    }, 350);
+  }, { passive:true });
+  function cancelLp(){ if(lpTimer){ clearTimeout(lpTimer); lpTimer = null; } }
+  d.addEventListener('touchmove', cancelLp, { passive:true });
+  d.addEventListener('touchend', cancelLp);
+  d.addEventListener('touchcancel', cancelLp);
+
+  invSlotEls[idx] = { ctx:cv.getContext('2d'), cnt:cnt };
+  return d;
+}
+function isCraftInput(idx){
+  return (idx >= CRAFT_0 && idx < CRAFT_RESULT) || (idx >= TABLE_0 && idx < TABLE_RESULT);
+}
+function invSlotClick(idx){
+  // Ergebnis-Slots: nur entnehmen
+  if(idx === CRAFT_RESULT || idx === TABLE_RESULT){ takeCraft(); return; }
+  if(idx === FUR_OUT){ takeFurnaceOut(); return; }
+  // Rüstungsslots: noch keine Rüstungs-Items
+  if(idx >= ARMOR_0 && idx < ARMOR_END){
+    if(cursorItem) showToast('Rüstung gibt es noch nicht');
+    return;
+  }
+  var s = slots[idx];
+  if(!cursorItem){
+    if(s){ cursorItem = s; slots[idx] = null; }
+  } else {
+    var ms = maxStack(cursorItem.id);
+    if(!s){ slots[idx] = cursorItem; cursorItem = null; }
+    else if(s.id === cursorItem.id && s.count < maxStack(s.id)){
+      var take = Math.min(maxStack(s.id) - s.count, cursorItem.count);
+      s.count += take; cursorItem.count -= take;
+      if(cursorItem.count <= 0) cursorItem = null;
+    } else {
+      slots[idx] = cursorItem; cursorItem = s;
+    }
+  }
+  if(isCraftInput(idx)) computeCraft();
+  if(idx === FUR_IN || idx === FUR_FUEL) syncOpenFurnaceFromSlots();
+  invDirty = true;
+  renderInvUI(); renderCursor();
+}
+/* Rechtsklick / Langdruck: Stapel halbieren bzw. einzeln ablegen */
+function splitClick(idx){
+  if(idx === CRAFT_RESULT || idx === TABLE_RESULT){ takeCraft(); return; }
+  if(idx === FUR_OUT){ takeFurnaceOut(); return; }
+  if(idx >= ARMOR_0 && idx < ARMOR_END) return;
+  var s = slots[idx];
+  if(!cursorItem){
+    // Hälfte aufnehmen, aufgerundet in die Hand (7 -> 4 Hand / 3 bleibt)
+    if(!s) return;
+    var take = Math.ceil(s.count / 2);
+    var leave = s.count - take;
+    cursorItem = { id:s.id, count:take };
+    slots[idx] = leave > 0 ? { id:s.id, count:leave } : null;
+  } else {
+    // ein einzelnes Item ablegen
+    var ms = maxStack(cursorItem.id);
+    if(!s){
+      slots[idx] = { id:cursorItem.id, count:1 };
+      cursorItem.count--;
+    } else if(s.id === cursorItem.id && s.count < ms){
+      s.count++; cursorItem.count--;
+    } else {
+      return; // anderes Item im Slot: nichts tun
+    }
+    if(cursorItem.count <= 0) cursorItem = null;
+  }
+  if(isCraftInput(idx)) computeCraft();
+  if(idx === FUR_IN || idx === FUR_FUEL) syncOpenFurnaceFromSlots();
+  invDirty = true;
+  renderInvUI(); renderCursor();
+}
+
+function renderInvUI(){
+  for(var i=0; i<TOTAL_SLOTS; i++){
+    var e = invSlotEls[i];
+    if(!e) continue;
+    e.ctx.clearRect(0,0,16,16);
+    var s = slots[i];
+    if(s){ drawItemIcon(e.ctx, s.id); e.cnt.textContent = s.count > 1 ? s.count : ''; }
+    else {
+      e.cnt.textContent = '';
+      if(i >= ARMOR_0 && i < ARMOR_END) drawArmorPh(e.ctx, i - ARMOR_0);
+    }
+  }
+}
+var lastPointer = { x: window.innerWidth/2, y: window.innerHeight/2 };
+function positionCursor(){
+  cursorEl.style.left = (lastPointer.x + 6) + 'px';
+  cursorEl.style.top  = (lastPointer.y + 6) + 'px';
+}
+function renderCursor(){
+  if(cursorItem){
+    cursorEl.style.display = 'block';
+    cursorCtx.clearRect(0,0,16,16);
+    drawItemIcon(cursorCtx, cursorItem.id);
+    cursorEl.querySelector('.cnt').textContent = cursorItem.count > 1 ? cursorItem.count : '';
+    positionCursor();   // direkt an der aktuellen Position zeigen (auch beim Langdruck)
+  } else cursorEl.style.display = 'none';
+}
+function trackPointer(e){
+  var p = (e.touches && e.touches[0]) ? e.touches[0] : e;
+  if(typeof p.clientX === 'number'){ lastPointer.x = p.clientX; lastPointer.y = p.clientY; }
+  if(cursorItem) positionCursor();
+}
+document.addEventListener('pointermove', trackPointer, { passive:true });
+document.addEventListener('pointerdown', trackPointer, { passive:true });
+document.addEventListener('touchstart', trackPointer, { passive:true });
+document.addEventListener('touchmove', trackPointer, { passive:true });
+var furnaceOpen = false;
+// Jeder Ofen-Block hat seinen eigenen Zustand, abgelegt nach Position
+var furnaces = {};            // "x|y|z" -> { x,y,z, in, fuel, out, burnLeft, burnMax, prog }
+var openFurnaceKey = null;    // welcher Ofen gerade offen ist
+function fKey(x,y,z){ return (x|0) + '|' + (y|0) + '|' + (z|0); }
+function newFurnace(x,y,z){ return { x:x|0, y:y|0, z:z|0, in:null, fuel:null, out:null, burnLeft:0, burnMax:0, prog:0 }; }
+function getFurnace(x,y,z){ var k = fKey(x,y,z); if(!furnaces[k]) furnaces[k] = newFurnace(x,y,z); return furnaces[k]; }
+function mirrorFurnaceToSlots(f){ slots[FUR_IN] = f.in; slots[FUR_FUEL] = f.fuel; slots[FUR_OUT] = f.out; }
+function syncOpenFurnaceFromSlots(){
+  if(openFurnaceKey && furnaces[openFurnaceKey]){
+    var f = furnaces[openFurnaceKey];
+    f.in = slots[FUR_IN]; f.fuel = slots[FUR_FUEL]; f.out = slots[FUR_OUT];
+  }
+}
+function setPanelMode(mode){   // 'craft' | 'table' | 'furnace'
+  // Wenn wir den Ofen verlassen: Inhalt in die Registry zurückschreiben und Spiegel-Slots leeren
+  if(mode !== 'furnace' && openFurnaceKey){
+    syncOpenFurnaceFromSlots();
+    slots[FUR_IN] = null; slots[FUR_FUEL] = null; slots[FUR_OUT] = null;
+    openFurnaceKey = null;
+  }
+  tableOpen = (mode === 'table');
+  furnaceOpen = (mode === 'furnace');
+  document.getElementById('craft2x2wrap').style.display = (mode === 'craft') ? 'flex' : 'none';
+  document.getElementById('craft3x3wrap').style.display = (mode === 'table') ? 'flex' : 'none';
+  document.getElementById('furnaceWrap').style.display  = (mode === 'furnace') ? 'flex' : 'none';
+  var title = mode === 'table' ? 'Werkbank (3x3)' : (mode === 'furnace' ? 'Ofen' : 'Handwerk (2x2)');
+  document.getElementById('craftTitle').textContent = title;
+  document.getElementById('craftHint').textContent =
+    mode === 'table' ? 'Werkzeuge: 3 Material oben + 2 Stöcke (Spitzhacke) usw.'
+    : mode === 'furnace' ? 'Oben rein, Brennstoff (Kohle/Holz) drunter. Rohes Fleisch wird gebraten.'
+    : '1 Holz ➜ 4 Bretter · 2 Bretter ➜ 4 Stöcke · 4 Bretter ➜ Werkbank';
+}
+function setCraftMode(table){ setPanelMode(table ? 'table' : 'craft'); }
+function returnCraftItems(){
+  // Items aus den Craftgittern zurück ins Lager. Der Ofen bleibt unberührt und schmilzt weiter.
+  for(var i=CRAFT_0; i<CRAFT_RESULT; i++){ if(slots[i]){ addItem(slots[i].id, slots[i].count); slots[i] = null; } }
+  for(var t=TABLE_0; t<TABLE_RESULT; t++){ if(slots[t]){ addItem(slots[t].id, slots[t].count); slots[t] = null; } }
+  slots[CRAFT_RESULT] = null; slots[TABLE_RESULT] = null;
+}
+/* Ofen: Ausgabe in die Hand nehmen */
+function takeFurnaceOut(){
+  var res = slots[FUR_OUT];
+  if(!res) return;
+  var ms = maxStack(res.id);
+  if(cursorItem && (cursorItem.id !== res.id || cursorItem.count + res.count > ms)) return;
+  if(!cursorItem) cursorItem = { id:res.id, count:0 };
+  cursorItem.count += res.count;
+  slots[FUR_OUT] = null;
+  syncOpenFurnaceFromSlots();
+  invDirty = true;
+  renderInvUI(); renderCursor();
+}
+/* Einen einzelnen Ofen weiterschmelzen. Gibt true zurück, wenn sich der Inhalt geändert hat. */
+function tickFurnace(f, dt){
+  var inS = f.in, fuelS = f.fuel, outS = f.out;
+  var smeltTo = inS ? SMELT[inS.id] : undefined;
+  var canOutput = smeltTo !== undefined && (!outS || (outS.id === smeltTo && outS.count < maxStack(smeltTo)));
+  var wantSmelt = (smeltTo !== undefined) && canOutput;
+  var changed = false;
+  // Brennstoff nachlegen, wenn nötig
+  if(f.burnLeft <= 0 && wantSmelt && fuelS && FUEL[fuelS.id]){
+    f.burnLeft = FUEL[fuelS.id]; f.burnMax = f.burnLeft;
+    fuelS.count--; if(fuelS.count <= 0) f.fuel = null;
+    changed = true;
+  }
+  if(f.burnLeft > 0){
+    f.burnLeft -= dt;
+    if(wantSmelt){
+      f.prog += dt;
+      if(f.prog >= SMELT_TIME){
+        f.prog = 0;
+        inS.count--; if(inS.count <= 0) f.in = null;
+        if(f.out) f.out.count++;
+        else f.out = { id:smeltTo, count:1 };
+        changed = true;
+      }
+    } else {
+      f.prog = Math.max(0, f.prog - dt*2);
+    }
+  } else {
+    f.prog = Math.max(0, f.prog - dt*2);
+  }
+  return changed;
+}
+/* Alle Öfen der Welt schmelzen weiter, auch geschlossen */
+function furnaceTick(dt){
+  var openF = (openFurnaceKey && furnaces[openFurnaceKey]) ? furnaces[openFurnaceKey] : null;
+  for(var k in furnaces){
+    var changed = tickFurnace(furnaces[k], dt);
+    if(furnaces[k] === openF && changed){ mirrorFurnaceToSlots(openF); invDirty = true; }
+  }
+  // Anzeige (Flamme + Balken) nur für den gerade offenen Ofen
+  if(invOpen && furnaceOpen && openF){
+    var flame = document.getElementById('furFlame');
+    if(flame){
+      var lit = openF.burnLeft > 0;
+      flame.style.filter = lit ? 'none' : 'grayscale(1)';
+      flame.style.opacity = lit ? (0.5 + 0.5*Math.min(1, openF.burnLeft / (openF.burnMax||1))) : '0.35';
+    }
+    var bar = document.getElementById('furProgBar');
+    if(bar) bar.style.width = Math.min(100, (openF.prog / SMELT_TIME) * 100) + '%';
+  }
+}
+function openInv(){
+  if(!inGame || paused) return;
+  invOpen = true;
+  setPanelMode('craft');
+  document.getElementById('creativeBox').style.display = (gameMode === 'creative') ? 'block' : 'none';
+  renderInvUI();
+  scrInv.classList.add('open');
+  if(locked) document.exitPointerLock();
+}
+function openTable(){
+  if(!inGame || paused) return;
+  invOpen = true;
+  setPanelMode('table');
+  document.getElementById('creativeBox').style.display = (gameMode === 'creative') ? 'block' : 'none';
+  computeCraft();
+  renderInvUI();
+  scrInv.classList.add('open');
+  if(locked) document.exitPointerLock();
+}
+function openFurnace(x, y, z){
+  if(!inGame || paused) return;
+  var f = getFurnace(x, y, z);          // Ofen genau an dieser Position
+  openFurnaceKey = fKey(x, y, z);
+  mirrorFurnaceToSlots(f);              // Inhalt dieses Ofens in die Anzeige-Slots spiegeln
+  invOpen = true;
+  setPanelMode('furnace');
+  document.getElementById('creativeBox').style.display = (gameMode === 'creative') ? 'block' : 'none';
+  renderInvUI();
+  scrInv.classList.add('open');
+  if(locked) document.exitPointerLock();
+}
+function closeInv(){
+  invOpen = false;
+  if(cursorItem){ addItem(cursorItem.id, cursorItem.count); cursorItem = null; renderCursor(); }
+  // offenen Ofen sichern und Spiegel-Slots leeren
+  syncOpenFurnaceFromSlots();
+  slots[FUR_IN] = null; slots[FUR_FUEL] = null; slots[FUR_OUT] = null;
+  openFurnaceKey = null;
+  returnCraftItems();
+  tableOpen = false; furnaceOpen = false;
+  scrInv.classList.remove('open');
+  if(!isTouch && inGame && !paused) canvas.requestPointerLock();
+}
+scrInv.addEventListener('click', function(e){ if(e.target === scrInv) closeInv(); });
+document.getElementById('btnInv').addEventListener('click', function(){ invOpen ? closeInv() : openInv(); });
+
+/* ============ Input ============ */
+var keys = {};
+var isTouch = ('ontouchstart' in window) && navigator.maxTouchPoints > 0;
+if(isTouch) document.body.classList.add('touch');
+
+var lastSpace = 0;
+var lastWTap = 0, wantSprint = false;
+document.addEventListener('keydown', function(e){
+  keys[e.code] = true;
+  if(!inGame || paused) return;
+  if(e.code === 'KeyE'){ e.preventDefault(); invOpen ? closeInv() : openInv(); return; }
+  if(invOpen) return;
+  if(e.code.indexOf('Digit') === 0){
+    var n = parseInt(e.code.slice(5));
+    selectSlot(n === 0 ? 9 : n-1);
+  }
+  if(e.code === 'KeyW' && !e.repeat){
+    var nw = performance.now();
+    if(nw - lastWTap < 300) wantSprint = true;   // Doppeltipp W = sprinten
+    lastWTap = nw;
+  }
+  if(e.code === 'Space' && !e.repeat && gameMode === 'creative'){
+    var now = performance.now();
+    if(now - lastSpace < 300) toggleFly();
+    lastSpace = now;
+  }
+  if(e.code === 'KeyG' && current && current.cheats) toggleGameMode();
+});
+document.addEventListener('keyup', function(e){
+  keys[e.code] = false;
+  if(e.code === 'KeyW') wantSprint = false;       // Sprint endet beim Loslassen
+});
+
+function toggleFly(){
+  if(gameMode !== 'creative'){ flying = false; return; }
+  flying = !flying;
+  player.vel.y = 0;
+  document.body.classList.toggle('flying', flying);
+  showToast(flying ? 'Fliegen an' : 'Fliegen aus');
+}
+function toggleGameMode(){
+  gameMode = (gameMode === 'survival') ? 'creative' : 'survival';
+  if(gameMode === 'survival'){ flying = false; document.body.classList.remove('flying'); }
+  document.body.classList.toggle('creativeMode', gameMode === 'creative');
+  invDirty = true; statsDirty = true;
+  showToast('Spielmodus: ' + (gameMode === 'survival' ? 'Überleben' : 'Kreativ'));
+}
+
+var locked = false;
+canvas.addEventListener('click', function(){
+  if(inGame && !paused && !invOpen && !isTouch && !locked) canvas.requestPointerLock();
+});
+document.addEventListener('pointerlockchange', function(){
+  locked = (document.pointerLockElement === canvas);
+  if(!locked && inGame && !paused && !invOpen && !isTouch) openPause();
+});
+document.addEventListener('mousemove', function(e){
+  if(!locked || paused || invOpen) return;
+  var s = 0.0024 * settings.sens/100;
+  player.yaw   -= e.movementX * s;
+  player.pitch -= e.movementY * s;
+  player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch));
+});
+
+var mouseLeft = false;
+var creativeBreakCd = 0;
+document.addEventListener('mousedown', function(e){
+  if(!locked || paused || invOpen) return;
+  if(e.button === 0){
+    mouseLeft = true;
+    if(meleeAttack()) return;   // erst Tier treffen
+    if(gameMode === 'creative' && !nearestMobHit(3.4)){ breakBlockInstant(); creativeBreakCd = 0.22; }
+  }
+  if(e.button === 2) useItem();
+});
+document.addEventListener('mouseup', function(e){
+  if(e.button === 0) mouseLeft = false;
+});
+document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+/* ---- Touch ---- */
+var joy = document.getElementById('joy'), joyKnob = document.getElementById('joyKnob');
+var joyVec = { x:0, y:0 }, joyId = null;
+var lookId = null, lookLast = null, lookStart = null, lookMoved = false, lookT0 = 0;
+var touchMining = false;
+var placeMode = false;
+var btnMode = document.getElementById('btnMode');
+var modeHoldTimer = null;
+btnMode.addEventListener('touchstart', function(e){
+  e.preventDefault();
+  modeHoldTimer = setTimeout(function(){
+    modeHoldTimer = null;
+    if(current && current.cheats) toggleGameMode();
+  }, 700);
+});
+btnMode.addEventListener('touchend', function(e){
+  e.preventDefault();
+  if(modeHoldTimer){
+    clearTimeout(modeHoldTimer); modeHoldTimer = null;
+    placeMode = !placeMode;
+    btnMode.textContent = placeMode ? '🧱' : '⛏';
+    btnMode.classList.toggle('place', placeMode);
+    showToast(placeMode ? 'Modus: Platzieren / Benutzen' : 'Modus: Abbauen');
+  }
+});
+var jumpHeld = false, downHeld = false, lastJumpTap = 0;
+var btnJump = document.getElementById('btnJump');
+btnJump.addEventListener('touchstart', function(e){
+  e.preventDefault(); jumpHeld = true;
+  if(gameMode === 'creative'){
+    var now = performance.now();
+    if(now - lastJumpTap < 300) toggleFly();
+    lastJumpTap = now;
+  }
+});
+btnJump.addEventListener('touchend', function(e){ e.preventDefault(); jumpHeld = false; });
+var btnDown = document.getElementById('btnDown');
+btnDown.addEventListener('touchstart', function(e){ e.preventDefault(); downHeld = true; });
+btnDown.addEventListener('touchend', function(e){ e.preventDefault(); downHeld = false; });
+
+function joyUpdate(t){
+  var r = joy.getBoundingClientRect();
+  var cx = r.left + r.width/2, cy = r.top + r.height/2;
+  var dx = t.clientX - cx, dy = t.clientY - cy;
+  var len = Math.sqrt(dx*dx + dy*dy), max = r.width/2;
+  if(len > max){ dx = dx/len*max; dy = dy/len*max; }
+  joyVec.x = dx/max; joyVec.y = dy/max;
+  joyKnob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+}
+joy.addEventListener('touchstart', function(e){
+  e.preventDefault();
+  joyId = e.changedTouches[0].identifier;
+  joyUpdate(e.changedTouches[0]);
+});
+document.addEventListener('touchmove', function(e){
+  if(!inGame || paused || invOpen) return;
+  for(var i=0; i<e.changedTouches.length; i++){
+    var t = e.changedTouches[i];
+    if(t.identifier === joyId){ joyUpdate(t); }
+    else if(t.identifier === lookId && lookLast){
+      var dx = t.clientX - lookLast.x, dy = t.clientY - lookLast.y;
+      if(Math.abs(t.clientX-lookStart.x) + Math.abs(t.clientY-lookStart.y) > 14){
+        lookMoved = true; touchMining = false;
+      }
+      var s = 0.005 * settings.sens/100;
+      player.yaw   -= dx * s;
+      player.pitch -= dy * s;
+      player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch));
+      lookLast = { x:t.clientX, y:t.clientY };
+    }
+  }
+}, { passive:false });
+document.addEventListener('touchstart', function(e){
+  if(!inGame || paused || invOpen) return;
+  for(var i=0; i<e.changedTouches.length; i++){
+    var t = e.changedTouches[i];
+    var el = document.elementFromPoint(t.clientX, t.clientY);
+    if(el && (el.closest('#joy') || el.closest('#btnJump') || el.closest('#btnDown') || el.closest('#btnMode') || el.closest('#hotbar') || el.closest('#btnPause') || el.closest('#btnInv'))) continue;
+    if(lookId === null){
+      lookId = t.identifier;
+      lookLast = { x:t.clientX, y:t.clientY };
+      lookStart = { x:t.clientX, y:t.clientY };
+      lookMoved = false; lookT0 = performance.now();
+      if(!placeMode) touchMining = true;   // Finger halten = abbauen
+    }
+  }
+}, { passive:true });
+document.addEventListener('touchend', function(e){
+  for(var i=0; i<e.changedTouches.length; i++){
+    var t = e.changedTouches[i];
+    if(t.identifier === joyId){
+      joyId = null; joyVec.x = 0; joyVec.y = 0;
+      joyKnob.style.transform = 'translate(0,0)';
+    }
+    if(t.identifier === lookId){
+      if(!lookMoved && performance.now() - lookT0 < 300 && inGame && !paused && !invOpen){
+        if(placeMode){
+          useItem();
+        } else {
+          // Abbau-Modus: erst Tier schlagen, sonst Menü-Block, sonst Kreativ-Abbau
+          if(!meleeAttack() && !tryOpenBlockGui() && gameMode === 'creative') breakBlockInstant();
+        }
+      }
+      lookId = null; lookLast = null; touchMining = false;
+    }
+  }
+});
+
+/* ============ Raycast ============ */
+function raycast(maxDist){
+  var dx = -Math.sin(player.yaw)*Math.cos(player.pitch);
+  var dy = Math.sin(player.pitch);
+  var dz = -Math.cos(player.yaw)*Math.cos(player.pitch);
+  var ox = player.pos.x, oy = player.pos.y + player.eye, oz = player.pos.z;
+  var x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
+  var stepX = dx > 0 ? 1 : -1, stepY = dy > 0 ? 1 : -1, stepZ = dz > 0 ? 1 : -1;
+  var tdx = Math.abs(1/dx), tdy = Math.abs(1/dy), tdz = Math.abs(1/dz);
+  var tx = (dx > 0 ? (x+1-ox) : (ox-x)) * tdx;
+  var ty = (dy > 0 ? (y+1-oy) : (oy-y)) * tdy;
+  var tz = (dz > 0 ? (z+1-oz) : (oz-z)) * tdz;
+  var px2 = x, py2 = y, pz2 = z;
+  var dist = 0;
+  while(dist <= maxDist){
+    px2 = x; py2 = y; pz2 = z;
+    if(tx < ty && tx < tz){ dist = tx; tx += tdx; x += stepX; }
+    else if(ty < tz){ dist = ty; ty += tdy; y += stepY; }
+    else { dist = tz; tz += tdz; z += stepZ; }
+    if(dist > maxDist) break;
+    if(getB(x,y,z) !== AIR) return { hit:[x,y,z], prev:[px2,py2,pz2] };
+  }
+  return null;
+}
+
+/* ============ Abbauen & Platzieren ============ */
+var mineTarget = null, mineTime = 0;
+var mineProgEl = document.getElementById('mineProg');
+var mineProgBar = mineProgEl.querySelector('div');
+
+function blockDrop(id){
+  return id;   // Standard: Block selbst
+}
+function doBreakDrop(x,y,z,id){
+  setB(x,y,z,AIR);
+  rebuildAt(x,z);
+  netSendBlock(x,y,z,AIR);
+  // Ofen abgebaut: Inhalt fällt raus, Eintrag entfernen (in jedem Modus)
+  if(id === FURNACE){
+    var fk = fKey(x,y,z);
+    var f = furnaces[fk];
+    if(f && gameMode === 'survival'){
+      [f.in, f.fuel, f.out].forEach(function(it){ if(it) addItem(it.id, it.count); });
+    }
+    if(openFurnaceKey === fk){ slots[FUR_IN] = null; slots[FUR_FUEL] = null; slots[FUR_OUT] = null; openFurnaceKey = null; }
+    delete furnaces[fk];
+    if(gameMode === 'survival') addItem(FURNACE, 1);
+    return;
+  }
+  if(gameMode !== 'survival') return;
+  var heldTool = toolInfo(slots[selected] ? slots[selected].id : 0);
+  if(id === COAL_ORE){
+    // Kohle gibt es nur mit einer Spitzhacke
+    if(heldTool && heldTool.type === 'pick'){ addItem(COAL, 1); }
+    else showToast('Dafür brauchst du eine Spitzhacke');
+    return;
+  }
+  addItem(blockDrop(id), 1);
+  if(id === LEAVES && hash2(x*13+y*7, z*17+y*3) < 0.12){
+    addItem(APPLE, 1);
+    showToast('Apfel gefunden!');
+  }
+}
+function breakBlockInstant(){
+  var r = raycast(6);
+  if(!r) return;
+  if(r.hit[1] === 0) return;
+  doBreakDrop(r.hit[0], r.hit[1], r.hit[2], getB(r.hit[0],r.hit[1],r.hit[2]));
+}
+function updateMining(dt){
+  var wantMine = (gameMode === 'survival') && ((locked && mouseLeft) || touchMining);
+  if(!wantMine){
+    mineTarget = null; mineTime = 0;
+    mineProgEl.style.display = 'none';
+    return;
+  }
+  // Tier im Fadenkreuz -> nicht abbauen (man schlägt das Tier)
+  if(nearestMobHit(3.4)){
+    mineTarget = null; mineTime = 0;
+    mineProgEl.style.display = 'none';
+    return;
+  }
+  var r = raycast(6);
+  if(!r || r.hit[1] === 0){
+    mineTarget = null; mineTime = 0;
+    mineProgEl.style.display = 'none';
+    return;
+  }
+  var key2 = r.hit.join(',');
+  if(mineTarget !== key2){ mineTarget = key2; mineTime = 0; }
+  var id = getB(r.hit[0], r.hit[1], r.hit[2]);
+  var held = slots[selected] ? slots[selected].id : 0;
+  var need = (BREAK_TIME[id] || 1) / toolSpeedFor(id, held);
+  mineTime += dt;
+  mineProgEl.style.display = 'block';
+  mineProgBar.style.width = Math.min(100, mineTime/need*100) + '%';
+  if(mineTime >= need){
+    doBreakDrop(r.hit[0], r.hit[1], r.hit[2], id);
+    mineTarget = null; mineTime = 0;
+    mineProgEl.style.display = 'none';
+  }
+}
+function toolSpeedFor(blockId, toolId){
+  var cat = blockCategory(blockId);
+  var tool = toolInfo(toolId);
+  if(cat && tool && tool.type === cat) return tool.tier === 2 ? 4 : 2.2;
+  return 1;
+}
+
+function isGuiBlock(id){ return id === BENCH || id === FURNACE; }   // Blöcke mit eigenem Menü
+function tryOpenBlockGui(){
+  var r = raycast(6);
+  if(!r) return false;
+  var id = getB(r.hit[0], r.hit[1], r.hit[2]);
+  if(id === BENCH){ openTable(); return true; }
+  if(id === FURNACE){ openFurnace(r.hit[0], r.hit[1], r.hit[2]); return true; }
+  return false;
+}
+
+function useItem(){
+  // Auf einen Block mit Menü zielen (Werkbank/Ofen) -> Menü öffnen
+  if(tryOpenBlockGui()) return;
+
+  var s = slots[selected];
+  if(!s) return;
+  // Essbares essen
+  if(FOOD[s.id] !== undefined){
+    if(gameMode === 'survival'){
+      if(hunger >= 20){ showToast('Du bist satt'); return; }
+      hunger = Math.min(20, hunger + FOOD[s.id]);
+      consumeSelected();
+      statsDirty = true;
+      showToast('Mmh, lecker');
+    }
+    return;   // Essen ist kein Block
+  }
+  placeBlock(s.id, gameMode === 'survival');
+}
+function placeBlock(id, consume){
+  if(!blockTiles[id]) return;
+  var r = raycast(6);
+  if(!r) return;
+  var p = r.prev;
+  if(p[1] < 0 || p[1] >= SY) return;
+  if(getB(p[0], p[1], p[2]) !== AIR) return;
+  var pMinX = player.pos.x - player.w, pMaxX = player.pos.x + player.w;
+  var pMinY = player.pos.y, pMaxY = player.pos.y + player.h;
+  var pMinZ = player.pos.z - player.w, pMaxZ = player.pos.z + player.w;
+  if(p[0] < pMaxX && p[0]+1 > pMinX && p[1] < pMaxY && p[1]+1 > pMinY && p[2] < pMaxZ && p[2]+1 > pMinZ) return;
+  setB(p[0], p[1], p[2], id);
+  if(id === FURNACE) getFurnace(p[0], p[1], p[2]);   // neuer, leerer Ofen
+  rebuildAt(p[0], p[2]);
+  netSendBlock(p[0], p[1], p[2], id);
+  if(consume) consumeSelected();
+}
+
+/* ============ Tiere (Kühe, Schafe) ============ */
+var mobs = [];
+var MOB_CAP = 8;
+var mobSpawnT = 0;
+
+// Materialien (unbeleuchtet, passend zum Spielstil)
+var MMAT = {};
+function mmat(hex){ if(!MMAT[hex]) MMAT[hex] = new THREE.MeshBasicMaterial({ color:hex }); return MMAT[hex]; }
+function boxPart(w,h,d, col, x,y,z){
+  var m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mmat(col));
+  m.position.set(x,y,z);
+  return m;
+}
+function makeMobModel(type){
+  var g = new THREE.Group();
+  if(type === 'cow'){
+    g.add(boxPart(0.7, 0.62, 1.05, 0x6b4a2e, 0, 0.78, 0));  // Körper braun
+    g.add(boxPart(0.72, 0.30, 0.5, 0xe8e2d2, 0, 0.74, 0.34));                          // weißer Fleck
+    g.add(boxPart(0.42, 0.42, 0.40, 0x5a3d24, 0, 0.92, -0.66));                        // Kopf
+    g.add(boxPart(0.18, 0.10, 0.10, 0xd8d0c0, -0.12, 1.02, -0.86));                    // Horn
+    g.add(boxPart(0.18, 0.10, 0.10, 0xd8d0c0,  0.12, 1.02, -0.86));
+    var lc = 0x4f3620;
+    g.add(boxPart(0.18,0.5,0.18, lc, -0.24,0.25,-0.34));
+    g.add(boxPart(0.18,0.5,0.18, lc,  0.24,0.25,-0.34));
+    g.add(boxPart(0.18,0.5,0.18, lc, -0.24,0.25, 0.36));
+    g.add(boxPart(0.18,0.5,0.18, lc,  0.24,0.25, 0.36));
+  } else {
+    g.add(boxPart(0.66, 0.66, 0.92, 0xeeeeee, 0, 0.82, 0));     // Wollkörper
+    g.add(boxPart(0.40, 0.40, 0.40, 0x33271c, 0, 0.86, -0.58)); // Kopf dunkel
+    var ls = 0x33271c;
+    g.add(boxPart(0.16,0.45,0.16, ls, -0.2,0.22,-0.28));
+    g.add(boxPart(0.16,0.45,0.16, ls,  0.2,0.22,-0.28));
+    g.add(boxPart(0.16,0.45,0.16, ls, -0.2,0.22, 0.3));
+    g.add(boxPart(0.16,0.45,0.16, ls,  0.2,0.22, 0.3));
+  }
+  scene.add(g);
+  return g;
+}
+function solidBlock(id){ return id !== AIR; }
+// höchste feste Blockoberkante unter/at y an Position x,z
+function groundUnder(x, y, z){
+  var bx = Math.floor(x), bz = Math.floor(z);
+  for(var yy = Math.min(SY-1, Math.floor(y)+1); yy >= 0; yy--){
+    if(solidBlock(getB(bx, yy, bz))) return yy + 1;
+  }
+  return 0;
+}
+function mobBlocked(x, y, z){
+  // feste Blöcke auf Körperhöhe (Füße und Kopf)?
+  return solidBlock(getB(Math.floor(x), Math.floor(y+0.2), Math.floor(z))) ||
+         solidBlock(getB(Math.floor(x), Math.floor(y+0.9), Math.floor(z)));
+}
+var mobNextId = 1;
+function spawnMob(type, x, y, z){
+  var m = { id:mobNextId++, type:type, x:x, y:y, z:z, vy:0, yaw:Math.random()*Math.PI*2,
+            wt:1+Math.random()*2, idle:false, hp:(type==='cow'?10:8), g:makeMobModel(type), hop:0 };
+  m.g.position.set(x,y,z);
+  mobs.push(m);
+}
+function mobById(id){ for(var i=0;i<mobs.length;i++) if(mobs[i].id === id) return mobs[i]; return null; }
+function trySpawnMobs(){
+  if(mobs.length >= MOB_CAP) return;
+  for(var attempt=0; attempt<4; attempt++){
+    var ang = Math.random()*Math.PI*2, dist = 14 + Math.random()*14;
+    var x = player.pos.x + Math.cos(ang)*dist;
+    var z = player.pos.z + Math.sin(ang)*dist;
+    var cx = Math.floor(x)>>4, cz = Math.floor(z)>>4;
+    if(!chunks[ckey(cx,cz)]) continue;               // nur in geladenen Chunks
+    var h = terrainHeight(Math.floor(x), Math.floor(z));
+    if(getB(Math.floor(x), h, Math.floor(z)) !== GRASS) continue;  // nur auf Gras
+    spawnMob(Math.random() < 0.5 ? 'cow' : 'sheep', Math.floor(x)+0.5, h+1, Math.floor(z)+0.5);
+    return;
+  }
+}
+function removeMob(i){
+  var m = mobs[i];
+  scene.remove(m.g);
+  m.g.traverse(function(o){ if(o.geometry) o.geometry.dispose(); });
+  mobs.splice(i, 1);
+}
+function mobAngDiff(a, b){ var d = (b - a) % (Math.PI*2); if(d > Math.PI) d -= Math.PI*2; if(d < -Math.PI) d += Math.PI*2; return d; }
+// Client: Tiere nur anzeigen, Positionen vom Host interpolieren
+function updateClientMobs(dt){
+  var k = Math.min(1, dt*10);
+  for(var i=0; i<mobs.length; i++){
+    var m = mobs[i];
+    if(m.tx !== undefined){
+      m.x += (m.tx - m.x) * k;
+      m.y += (m.ty - m.y) * k;
+      m.z += (m.tz - m.z) * k;
+      m.yaw += mobAngDiff(m.yaw, m.tyaw) * k;
+    }
+    m.g.position.set(m.x, m.y, m.z);
+    m.g.rotation.y = m.yaw;
+  }
+}
+// Client: Tierliste vom Host abgleichen
+function syncMobs(list){
+  var seen = {};
+  for(var i=0; i<list.length; i++){
+    var e = list[i]; seen[e.i] = true;
+    var mob = mobById(e.i);
+    var type = e.t === 0 ? 'cow' : 'sheep';
+    if(!mob){
+      mob = { id:e.i, type:type, x:e.x, y:e.y, z:e.z, yaw:e.r,
+              tx:e.x, ty:e.y, tz:e.z, tyaw:e.r, g:makeMobModel(type) };
+      mob.g.position.set(e.x, e.y, e.z);
+      mobs.push(mob);
+    } else {
+      mob.tx = e.x; mob.ty = e.y; mob.tz = e.z; mob.tyaw = e.r;
+    }
+  }
+  for(var j = mobs.length - 1; j >= 0; j--){ if(!seen[mobs[j].id]) removeMob(j); }
+}
+function updateMobs(dt){
+  if(net.mode === 'client'){ updateClientMobs(dt); return; }   // Client simuliert nicht
+  // Spawnen drosseln (Host/Einzelspieler)
+  mobSpawnT += dt;
+  if(mobSpawnT > 3){ mobSpawnT = 0; if(gameMode === 'survival') trySpawnMobs(); }
+
+  var maxD = (settings.dist * CHUNK) + 8;
+  for(var i = mobs.length - 1; i >= 0; i--){
+    var m = mobs[i];
+    var dxp = m.x - player.pos.x, dzp = m.z - player.pos.z;
+    if(dxp*dxp + dzp*dzp > maxD*maxD){ removeMob(i); continue; }   // zu weit weg -> entfernen
+
+    // Wandern
+    m.wt -= dt;
+    if(m.wt <= 0){
+      m.wt = 1.5 + Math.random()*3;
+      m.idle = Math.random() < 0.35;
+      if(!m.idle) m.yaw = Math.random()*Math.PI*2;
+    }
+    if(!m.idle){
+      var sp = 1.3;
+      var nx = m.x - Math.sin(m.yaw) * sp * dt;
+      var nz = m.z - Math.cos(m.yaw) * sp * dt;
+      if(!mobBlocked(nx, m.y, nz)){ m.x = nx; m.z = nz; }
+      else { m.yaw = Math.random()*Math.PI*2; }   // gegen Wand -> umdrehen
+    }
+    // Schwerkraft + Boden
+    m.vy -= GRAVITY * dt;
+    m.y += m.vy * dt;
+    var gy = groundUnder(m.x, m.y + 0.5, m.z);
+    if(m.y <= gy){ m.y = gy; m.vy = 0; }
+
+    if(m.hop > 0) m.hop -= dt;
+    m.g.position.set(m.x, m.y + (m.hop > 0 ? 0.12 : 0), m.z);
+    m.g.rotation.y = m.yaw;
+  }
+}
+function clearMobs(){ for(var i = mobs.length - 1; i >= 0; i--) removeMob(i); }
+
+// Strahl-Kugel-Schnitt, gibt nächste positive Distanz oder null
+function raySphere(ox,oy,oz, dx,dy,dz, cx,cy,cz, r){
+  var ex = ox - cx, ey = oy - cy, ez = oz - cz;
+  var b = ex*dx + ey*dy + ez*dz;
+  var c = ex*ex + ey*ey + ez*ez - r*r;
+  var disc = b*b - c;
+  if(disc < 0) return null;
+  var t = -b - Math.sqrt(disc);
+  if(t < 0) t = -b + Math.sqrt(disc);
+  return t >= 0 ? t : null;
+}
+function nearestMobHit(reach){
+  var ox = player.pos.x, oy = player.pos.y + player.eye, oz = player.pos.z;
+  var dx = -Math.sin(player.yaw)*Math.cos(player.pitch);
+  var dy = Math.sin(player.pitch);
+  var dz = -Math.cos(player.yaw)*Math.cos(player.pitch);
+  var best = null, bestT = reach;
+  for(var i=0; i<mobs.length; i++){
+    var m = mobs[i];
+    var t = raySphere(ox,oy,oz, dx,dy,dz, m.x, m.y + 0.55, m.z, 0.7);
+    if(t != null && t < bestT){ bestT = t; best = { mob:m, t:t, idx:i, dx:dx, dz:dz }; }
+  }
+  return best;
+}
+function meleeDamage(){
+  var ti = toolInfo(slots[selected] ? slots[selected].id : 0);
+  if(ti && ti.type === 'sword') return ti.tier === 2 ? 5 : 4;
+  return 2;   // Faust
+}
+function mobDrops(type){
+  var d = [];
+  if(type === 'cow'){
+    d.push({ id:RAW_BEEF, count:1 + (Math.random()<0.5?1:0) });
+    var lz = Math.random()<0.7 ? (1 + (Math.random()<0.4?1:0)) : 0;
+    if(lz > 0) d.push({ id:LEATHER, count:lz });
+  } else {
+    d.push({ id:RAW_MUTTON, count:1 + (Math.random()<0.5?1:0) });
+    d.push({ id:WOOL, count:1 });
+  }
+  return d;
+}
+function killMob(m){
+  if(gameMode === 'survival') mobDrops(m.type).forEach(function(d){ addItem(d.id, d.count); });
+  showToast(m.type === 'cow' ? 'Kuh erlegt' : 'Schaf erlegt');
+}
+function meleeAttack(){
+  var hit = nearestMobHit(3.4);
+  if(!hit) return false;
+  var m = hit.mob;
+  if(net.mode === 'client'){
+    // Client: Treffer an den Host melden, der entscheidet
+    jsend(net.hostConn, { t:'mobhit', i:m.id, d:meleeDamage() });
+    m.hop = 0.18;   // kleines lokales Feedback
+    return true;
+  }
+  m.hp -= meleeDamage();
+  m.hop = 0.18;
+  // kleiner Rückstoß weg vom Spieler
+  var nx = m.x + hit.dx * 0.5, nz = m.z + hit.dz * 0.5;
+  if(!mobBlocked(nx, m.y, nz)){ m.x = nx; m.z = nz; }
+  m.vy = 3.2;
+  if(m.hp <= 0){
+    killMob(m);
+    var idx = mobs.indexOf(m);
+    if(idx >= 0) removeMob(idx);
+  }
+  return true;
+}
+
+
+var sprinting = false, curFov = settings.fov;
+var infoEl = document.getElementById('info');
+var last = performance.now(), fpsT = 0, fpsC = 0, fps = 0;
+var saveTimer = 0;
+
+function survivalTick(dt){
+  var diff = current ? current.diff : 2;
+  // Hunger sinkt langsam (nicht auf Friedlich)
+  if(diff > 0){
+    hungerDrain += dt * (0.7 + diff*0.25);     // schwerer = schneller hungrig
+    if(sprinting) hungerDrain += dt * 1.6;     // Sprinten kostet extra Hunger
+    if(hungerDrain > 28){
+      hungerDrain = 0;
+      if(hunger > 0){ hunger--; statsDirty = true; }
+    }
+  } else if(hunger < 20){
+    hunger = 20; statsDirty = true;
+  }
+  // Regeneration bei vollem Hunger
+  if(hunger >= 18 && health < 20){
+    regenTimer += dt;
+    if(regenTimer > 2){
+      regenTimer = 0;
+      health = Math.min(20, health + 1);
+      statsDirty = true;
+      if(diff > 0){ hungerDrain += 8; }
+    }
+  } else regenTimer = 0;
+  // Verhungern
+  if(hunger <= 0){
+    starveTimer += dt;
+    if(starveTimer > 3){
+      starveTimer = 0;
+      var floor2 = (diff >= 3) ? 0 : (diff === 2 ? 1 : 10);
+      if(health > floor2) damage(1);
+    }
+  } else starveTimer = 0;
+}
+
+function step(dt){
+  var fx = 0, fz = 0;
+  if(keys['KeyW']) fz -= 1;
+  if(keys['KeyS']) fz += 1;
+  if(keys['KeyA']) fx -= 1;
+  if(keys['KeyD']) fx += 1;
+  fx += joyVec.x; fz += joyVec.y;
+  var len = Math.sqrt(fx*fx + fz*fz);
+  if(len > 1){ fx /= len; fz /= len; }
+
+  // Sprinten: vorwärts und (Doppel-W / Strg) oder Joystick voll, und nicht am Verhungern
+  var movingFwd = (keys['KeyW'] || joyVec.y < -0.2);
+  var joySprint = joyVec.y < -0.55 && Math.abs(joyVec.x) < 0.6;
+  var ctrlSprint = (keys['ControlLeft'] || keys['ControlRight']) && movingFwd;
+  sprinting = !flying && len > 0.1 && movingFwd && hunger > 0 &&
+              (wantSprint || ctrlSprint || joySprint);
+
+  var sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
+  var spd = flying ? FLY_SPEED : (sprinting ? SPEED * 1.45 : SPEED);
+  player.vel.x = ( fx*cos + fz*sin) * spd;
+  player.vel.z = (-fx*sin + fz*cos) * spd;
+
+  // sanfte FOV-Anpassung beim Sprinten
+  var tgtFov = settings.fov + (sprinting ? 8 : 0);
+  curFov += (tgtFov - curFov) * Math.min(1, dt*9);
+  if(Math.abs(curFov - camera.fov) > 0.05){ camera.fov = curFov; camera.updateProjectionMatrix(); }
+
+  if(flying){
+    player.vel.y = 0;
+    if(keys['Space'] || jumpHeld) player.vel.y = FLY_SPEED * 0.8;
+    if(keys['ShiftLeft'] || keys['ShiftRight'] || downHeld) player.vel.y = -FLY_SPEED * 0.8;
+  } else {
+    player.vel.y -= GRAVITY * dt;
+    if(player.vel.y < -40) player.vel.y = -40;
+    if((keys['Space'] || jumpHeld) && player.onGround && !invOpen){
+      player.vel.y = JUMP;
+      player.onGround = false;
+      hungerDrain += 0.4;
+    }
+  }
+
+  var p = player.pos;
+  var wasGround = player.onGround;
+  p.x += player.vel.x * dt;
+  if(collides(p)){ p.x -= player.vel.x * dt; player.vel.x = 0; }
+  p.z += player.vel.z * dt;
+  if(collides(p)){ p.z -= player.vel.z * dt; player.vel.z = 0; }
+  p.y += player.vel.y * dt;
+  if(collides(p)){
+    if(player.vel.y < 0 && !flying){
+      player.onGround = true;
+      // Fallschaden
+      if(gameMode === 'survival' && fallPeak > 0){
+        var fallDist = fallPeak - p.y;
+        var dmg = Math.floor(fallDist - 3);
+        if(dmg > 0) damage(dmg);
+      }
+      fallPeak = 0;
+    }
+    p.y -= player.vel.y * dt;
+    player.vel.y = 0;
+  } else {
+    if(!flying){
+      player.onGround = false;
+      if(p.y > fallPeak) fallPeak = p.y;
+      if(wasGround) fallPeak = p.y;
+    } else fallPeak = 0;
+  }
+
+  p.x = Math.max(0.5, Math.min(WORLD_BLOCKS - 0.5, p.x));
+  p.z = Math.max(0.5, Math.min(WORLD_BLOCKS - 0.5, p.z));
+  if(p.y > SY + 20) p.y = SY + 20;
+  if(p.y < -10) die();
+
+  camera.position.set(p.x, p.y + player.eye, p.z);
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = player.yaw;
+  camera.rotation.x = player.pitch;
+
+  // Kreativ: Dauerabbau bei gehaltener Maus
+  if(gameMode === 'creative' && mouseLeft && locked && !nearestMobHit(3.4)){
+    creativeBreakCd -= dt;
+    if(creativeBreakCd <= 0){ breakBlockInstant(); creativeBreakCd = 0.22; }
+  }
+  updateMining(dt);
+  if(gameMode === 'survival') survivalTick(dt);
+
+  var r = raycast(6);
+  if(r && !nearestMobHit(3.4)){
+    highlight.visible = true;
+    highlight.position.set(r.hit[0]+0.5, r.hit[1]+0.5, r.hit[2]+0.5);
+  } else highlight.visible = false;
+}
+
+function loop(){
+  requestAnimationFrame(loop);
+  var now = performance.now();
+  var dt = Math.min((now - last)/1000, 0.05);
+  last = now;
+
+  if(inGame && !paused && !invOpen){
+    step(dt);
+    updateChunks(false);
+    processQueue(2);
+    netTick(dt);
+    if(net.mode !== 'client'){
+      saveTimer += dt;
+      if(saveTimer > 5){
+        saveTimer = 0;
+        if(editsDirty) saveEdits();
+        savePlayerState();
+      }
+    }
+  }
+  if(inGame) updateAvatars(dt);
+  if(inGame && !paused) updateMobs(dt);                         // Tiere: Host/SP simulieren, Client interpoliert
+  if(inGame && !paused) furnaceTick(dt);                         // Ofen schmilzt immer weiter, auch geschlossen
+  if(invDirty){ invDirty = false; renderHotbar(); if(invOpen) renderInvUI(); }
+  if(statsDirty){ statsDirty = false; renderStats(); }
+  renderer.render(scene, camera);
+
+  if(inGame){
+    fpsC++;
+    if(now - fpsT > 500){
+      fps = Math.round(fpsC * 1000/(now - fpsT));
+      fpsT = now; fpsC = 0;
+      var loaded = 0;
+      for(var k in chunks) if(chunks[k].mesh) loaded++;
+      infoEl.innerHTML = 'FPS: ' + fps +
+        '<br>XYZ: ' + Math.floor(player.pos.x) + ' ' + Math.floor(player.pos.y) + ' ' + Math.floor(player.pos.z) +
+        '<br>Modus: ' + (gameMode === 'survival' ? 'Überleben' : 'Kreativ') + (flying ? ' (fliegt)' : '') +
+        '<br>Chunks: ' + loaded + (buildQueue.length ? ' (+' + buildQueue.length + ')' : '');
+    }
+  }
+}
+
+window.addEventListener('resize', function(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ============================================================
+   MEHRSPIELER (PeerJS, 6-stelliger Code, host-autoritativ)
+   Topologie: Stern. Host in der Mitte, jeder Client nur am Host.
+   Der Host bekommt einen 6-stelligen Code. Der Beitretende tippt
+   ihn ein und ist sofort verbunden. Die Vermittlung läuft über den
+   kostenlosen PeerJS-Broker, danach ist die Verbindung direkt P2P.
+   ============================================================ */
+var net = {
+  mode: 'off',          // 'off' | 'host' | 'client'
+  peer: null,           // PeerJS Peer Instanz (beide Rollen)
+  conns: {},            // host: id -> { conn, name, x,y,z,yaw,pitch, authed }
+  hostConn: null,       // client: Verbindung zum Host
+  nextId: 1,
+  myId: 0,
+  code: '',             // host: der 6-stellige Code
+  usePassword: false,
+  password: ''
+};
+var remotePlayers = {}; // id -> { group, head, name, x,y,z,yaw,pitch, tx,ty,tz,tyaw,tpitch }
+var netAccum = 0;
+var ID_PREFIX = 'bc3dmc-';   // eigener Namensraum auf dem Broker, mindert Kollisionen
+
+/* PeerJS bei Bedarf nachladen (zwei CDNs als Rückfall) */
+var peerLib = { loading:null };
+function ensurePeer(){
+  if(typeof Peer !== 'undefined') return Promise.resolve();
+  if(peerLib.loading) return peerLib.loading;
+  peerLib.loading = new Promise(function(res, rej){
+    var urls = [
+      'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js',
+      'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'
+    ];
+    var i = 0;
+    (function next(){
+      if(i >= urls.length){ rej(new Error('Mehrspieler-Bibliothek konnte nicht geladen werden. Internet nötig.')); return; }
+      var s = document.createElement('script');
+      s.src = urls[i++];
+      s.onload = function(){ res(); };
+      s.onerror = next;
+      document.head.appendChild(s);
+    })();
+  });
+  return peerLib.loading;
+}
+function peerErrMsg(err){
+  var t = err && err.type;
+  if(t === 'peer-unavailable') return 'Code nicht gefunden. Läuft der Host noch?';
+  if(t === 'network') return 'Keine Verbindung zum Vermittlungs-Server.';
+  if(t === 'server-error') return 'Vermittlungs-Server nicht erreichbar.';
+  if(t === 'unavailable-id') return 'Code schon vergeben.';
+  if(t === 'browser-incompatible') return 'Dieser Browser unterstützt kein WebRTC.';
+  return (err && err.message) || 'Verbindungsfehler';
+}
+
+function jsend(conn, obj){
+  try{ if(conn && conn.open) conn.send(obj); }catch(e){}
+}
+function hostBroadcast(obj, exceptId){
+  for(var id in net.conns){
+    if(exceptId != null && id == exceptId) continue;
+    var p = net.conns[id];
+    if(p.authed) jsend(p.conn, obj);
+  }
+}
+function netSendBlock(x,y,z,id){
+  if(net.mode === 'host') hostBroadcast({ t:'block', x:x, y:y, z:z, id:id });
+  else if(net.mode === 'client') jsend(net.hostConn, { t:'block', x:x, y:y, z:z, id:id });
+}
+function applyRemoteBlock(x,y,z,id){
+  setB(x,y,z,id);
+  rebuildAt(x,z);
+}
+
+/* ---------- HOST ---------- */
+function hostStart(){
+  if(net.mode === 'host') return Promise.resolve(net.code);
+  if(net.mode === 'client') return Promise.reject(new Error('Du bist gerade als Gast verbunden.'));
+  return ensurePeer().then(function(){
+    return new Promise(function(res, rej){ tryHostId(0, res, rej); });
+  });
+}
+function tryHostId(attempt, res, rej){
+  if(attempt > 6){ rej(new Error('Kein freier Code gefunden, bitte erneut versuchen.')); return; }
+  var code = String(Math.floor(100000 + Math.random()*900000));
+  var peer = new Peer(ID_PREFIX + code, { debug:0 });
+  var opened = false;
+  peer.on('open', function(){
+    opened = true;
+    net.peer = peer; net.mode = 'host'; net.myId = 0; net.code = code;
+    peer.on('connection', function(conn){ setupHostConn(conn); });
+    document.getElementById('netBadge').classList.add('on');
+    updateNetBadge();
+    res(code);
+  });
+  peer.on('error', function(err){
+    if(!opened && err && err.type === 'unavailable-id'){
+      try{ peer.destroy(); }catch(e){}
+      tryHostId(attempt + 1, res, rej);
+    } else if(!opened){
+      try{ peer.destroy(); }catch(e){}
+      rej(new Error(peerErrMsg(err)));
+    } else {
+      if(err && err.type === 'peer-unavailable') return;
+      showToast('Netzwerk: ' + peerErrMsg(err));
+    }
+  });
+}
+function setupHostConn(conn){
+  var id = net.nextId++;
+  net.conns[id] = { conn:conn, name:'?', x:0,y:0,z:0,yaw:0,pitch:0, authed:false };
+  conn.on('data', function(d){ hostHandle(id, d); });
+  conn.on('close', function(){ hostDropPeer(id); });
+  conn.on('error', function(){ hostDropPeer(id); });
+}
+function hostHandle(id, m){
+  var peer = net.conns[id];
+  if(!peer || !m) return;
+  if(m.t === 'hello'){
+    if(net.usePassword && m.password !== net.password){
+      jsend(peer.conn, { t:'reject', reason:'Falsches Passwort' });
+      setTimeout(function(){ try{ peer.conn.close(); }catch(e){} }, 250);
+      return;
+    }
+    peer.authed = true;
+    peer.name = (m.name || 'Spieler').slice(0,16);
+    jsend(peer.conn, {
+      t:'welcome', id:id, seed:SEED, name:current ? current.name : 'Welt',
+      mode:gameMode, diff:current ? current.diff : 2
+    });
+    sendEditsTo(peer.conn);   // Bauänderungen paketweise hinterher
+    showToast(peer.name + ' ist beigetreten');
+    refreshPlayerList();
+    updateNetBadge();
+  } else if(!peer.authed){
+    return;
+  } else if(m.t === 'pos'){
+    peer.x = m.x; peer.y = m.y; peer.z = m.z; peer.yaw = m.yaw; peer.pitch = m.pitch;
+  } else if(m.t === 'block'){
+    applyRemoteBlock(m.x, m.y, m.z, m.id);
+    hostBroadcast({ t:'block', x:m.x, y:m.y, z:m.z, id:m.id }, id);
+  } else if(m.t === 'mobhit'){
+    // Client hat ein Tier getroffen: Host wendet Schaden an, Beute geht an den Client
+    var mob = mobById(m.i);
+    if(!mob) return;
+    mob.hp -= (m.d || 2);
+    mob.hop = 0.18; mob.vy = 3.2;
+    if(mob.hp <= 0){
+      jsend(peer.conn, { t:'mobdrop', drops: mobDrops(mob.type) });
+      var mi = mobs.indexOf(mob);
+      if(mi >= 0) removeMob(mi);
+    }
+  }
+}
+function sendEditsTo(conn){
+  // Bauänderungen in kleinen Paketen senden, damit auch große Welten
+  // unter dem Größenlimit einer Verbindung bleiben.
+  var keys = Object.keys(editsByChunk);
+  var batch = {}, count = 0;
+  for(var i=0; i<keys.length; i++){
+    batch[keys[i]] = editsByChunk[keys[i]];
+    count++;
+    if(count >= 16){ jsend(conn, { t:'edits', d:batch }); batch = {}; count = 0; }
+  }
+  if(count > 0) jsend(conn, { t:'edits', d:batch });
+  jsend(conn, { t:'editsdone' });
+}
+function hostDropPeer(id){
+  var peer = net.conns[id];
+  if(!peer) return;
+  if(peer.authed) showToast((peer.name || 'Ein Spieler') + ' hat verlassen');
+  try{ peer.conn.close(); }catch(e){}
+  delete net.conns[id];
+  removeAvatar(id);
+  refreshPlayerList();
+  updateNetBadge();
+}
+function hostKick(id){ hostDropPeer(id); }
+
+/* ---------- CLIENT ---------- */
+function clientConnect(code, name, password){
+  return ensurePeer().then(function(){
+    return new Promise(function(res, rej){
+      var peer = new Peer({ debug:0 });   // zufällige eigene ID
+      net._joinName = name; net._joinPass = password;
+      var opened = false, settled = false;
+      function fail(msg){ if(!settled){ settled = true; rej(new Error(msg)); } }
+      peer.on('open', function(){
+        opened = true;
+        net.peer = peer;
+        var conn = peer.connect(ID_PREFIX + code, { reliable:true });
+        net.hostConn = conn;
+        setupClientConn(conn, function(){ if(!settled){ settled = true; res(); } });
+      });
+      peer.on('error', function(err){
+        if(err && err.type === 'peer-unavailable') fail(peerErrMsg(err));
+        else if(!opened) fail(peerErrMsg(err));
+        else if(net.mode !== 'client') showToast('Netzwerk: ' + peerErrMsg(err));
+      });
+      setTimeout(function(){
+        if(net.mode !== 'client') fail('Zeitüberschreitung. Code prüfen und ob der Host online ist.');
+      }, 15000);
+    });
+  });
+}
+function setupClientConn(conn, onOpen){
+  conn.on('open', function(){
+    jsend(conn, { t:'hello', name:net._joinName, password:net._joinPass });
+    if(onOpen) onOpen();
+  });
+  conn.on('data', function(d){ clientHandle(d); });
+  conn.on('close', function(){ onClientLost('Verbindung zum Host getrennt'); });
+  conn.on('error', function(){});
+}
+function clientHandle(m){
+  if(!m) return;
+  if(m.t === 'welcome'){
+    net.mode = 'client';
+    net.myId = m.id;
+    startClientWorld(m);
+  } else if(m.t === 'reject'){
+    showJoinError(m.reason || 'Abgelehnt');
+    try{ if(net.peer) net.peer.destroy(); }catch(e){}
+    net.peer = null; net.hostConn = null;
+  } else if(m.t === 'block'){
+    applyRemoteBlock(m.x, m.y, m.z, m.id);
+  } else if(m.t === 'edits'){
+    for(var k in m.d){
+      editsByChunk[k] = m.d[k];
+      if(chunks[k]){ unloadMesh(chunks[k]); delete chunks[k]; }
+    }
+    lastPCX = -999;
+    updateChunks(true);
+    processQueue(40);
+  } else if(m.t === 'editsdone'){
+    lastPCX = -999;
+    updateChunks(true);
+    processQueue(40);
+  } else if(m.t === 'players'){
+    syncRoster(m.list);
+  } else if(m.t === 'mobs'){
+    syncMobs(m.list);
+  } else if(m.t === 'mobdrop'){
+    if(m.drops) m.drops.forEach(function(d){ addItem(d.id, d.count); });
+    showToast('Beute erhalten');
+  }
+}
+function onClientLost(reason){
+  if(net.mode !== 'client') return;
+  net.mode = 'off';
+  showToast(reason);
+  leaveToMenu(false);
+}
+
+/* ---------- Tick: Positionen austauschen ---------- */
+function netTick(dt){
+  if(net.mode === 'off') return;
+  netAccum += dt;
+  if(netAccum < 0.066) return;   // ~15 Hz
+  netAccum = 0;
+  if(net.mode === 'client'){
+    jsend(net.hostConn, {
+      t:'pos', x:player.pos.x, y:player.pos.y, z:player.pos.z,
+      yaw:player.yaw, pitch:player.pitch
+    });
+  } else if(net.mode === 'host'){
+    var list = [{ id:0, name:settings.name, x:player.pos.x, y:player.pos.y, z:player.pos.z, yaw:player.yaw, pitch:player.pitch }];
+    for(var id in net.conns){
+      var p = net.conns[id];
+      if(!p.authed) continue;
+      list.push({ id:id|0, name:p.name, x:p.x, y:p.y, z:p.z, yaw:p.yaw, pitch:p.pitch });
+    }
+    hostBroadcast({ t:'players', list:list });
+    // Tiere an die Clients schicken
+    hostBroadcast({ t:'mobs', list: mobs.map(function(m){
+      return { i:m.id, t:(m.type==='cow'?0:1),
+               x:Math.round(m.x*100)/100, y:Math.round(m.y*100)/100, z:Math.round(m.z*100)/100,
+               r:Math.round(m.yaw*100)/100 };
+    }) });
+    var seen = {};
+    for(var id2 in net.conns){
+      var pp = net.conns[id2];
+      if(!pp.authed) continue;
+      seen[id2] = true;
+      setAvatarTarget(id2|0, pp.name, pp.x, pp.y, pp.z, pp.yaw, pp.pitch);
+    }
+    for(var rk in remotePlayers){ if(!seen[rk]) removeAvatar(rk|0); }
+  }
+}
+/* Client bekommt die volle Spielerliste vom Host */
+function syncRoster(list){
+  var seen = {};
+  for(var i=0; i<list.length; i++){
+    var e = list[i];
+    if((e.id|0) === (net.myId|0)) continue;   // sich selbst nicht zeichnen
+    seen[e.id] = true;
+    setAvatarTarget(e.id|0, e.name, e.x, e.y, e.z, e.yaw, e.pitch);
+  }
+  for(var rk in remotePlayers){ if(!seen[rk]) removeAvatar(rk|0); }
+}
+
+/* ---------- Avatare ---------- */
+function makeLabel(text){
+  var cv = document.createElement('canvas');
+  cv.width = 160; cv.height = 36;
+  var c = cv.getContext('2d');
+  c.fillStyle = 'rgba(0,0,0,0.55)';
+  c.fillRect(0,0,160,36);
+  c.font = 'bold 20px monospace';
+  c.fillStyle = '#fff';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(text.slice(0,12), 80, 18);
+  var tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter;
+  var spr = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, depthTest:true, transparent:true }));
+  spr.scale.set(1.8, 0.4, 1);
+  return spr;
+}
+function makeAvatar(name){
+  var g = new THREE.Group();
+  var body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.6, 0.95, 0.32),
+    new THREE.MeshBasicMaterial({ color:0x3a6ea5 })
+  );
+  body.position.y = 0.95/2 + 0.78;
+  var legs = new THREE.Mesh(
+    new THREE.BoxGeometry(0.55, 0.78, 0.3),
+    new THREE.MeshBasicMaterial({ color:0x2c3e66 })
+  );
+  legs.position.y = 0.78/2;
+  var head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.52, 0.52, 0.52),
+    new THREE.MeshBasicMaterial({ color:0xd9a066 })
+  );
+  head.position.y = 0.78 + 0.95 + 0.26;
+  var label = makeLabel(name);
+  label.position.y = 0.78 + 0.95 + 0.85;
+  g.add(legs); g.add(body); g.add(head); g.add(label);
+  scene.add(g);
+  return { group:g, head:head };
+}
+function setAvatarTarget(id, name, x, y, z, yaw, pitch){
+  var rp = remotePlayers[id];
+  if(!rp){
+    var av = makeAvatar(name || 'Spieler');
+    rp = remotePlayers[id] = {
+      group:av.group, head:av.head, name:name,
+      x:x, y:y, z:z, yaw:yaw, pitch:pitch,
+      tx:x, ty:y, tz:z, tyaw:yaw, tpitch:pitch
+    };
+  }
+  rp.tx = x; rp.ty = y; rp.tz = z; rp.tyaw = yaw; rp.tpitch = pitch;
+}
+function removeAvatar(id){
+  var rp = remotePlayers[id];
+  if(!rp) return;
+  scene.remove(rp.group);
+  rp.group.traverse(function(o){
+    if(o.geometry) o.geometry.dispose();
+    if(o.material){ if(o.material.map) o.material.map.dispose(); o.material.dispose(); }
+  });
+  delete remotePlayers[id];
+}
+function clearAvatars(){
+  for(var id in remotePlayers) removeAvatar(id|0);
+}
+function angLerp(a, b, t){
+  var d = b - a;
+  while(d > Math.PI) d -= Math.PI*2;
+  while(d < -Math.PI) d += Math.PI*2;
+  return a + d*t;
+}
+function updateAvatars(dt){
+  var k = Math.min(1, dt*12);
+  for(var id in remotePlayers){
+    var rp = remotePlayers[id];
+    rp.x += (rp.tx - rp.x)*k;
+    rp.y += (rp.ty - rp.y)*k;
+    rp.z += (rp.tz - rp.z)*k;
+    rp.yaw = angLerp(rp.yaw, rp.tyaw, k);
+    rp.group.position.set(rp.x, rp.y, rp.z);
+    rp.group.rotation.y = rp.yaw;
+  }
+}
+
+function updateNetBadge(){
+  var b = document.getElementById('netBadge');
+  if(net.mode === 'off'){ b.classList.remove('on'); return; }
+  b.classList.add('on');
+  if(net.mode === 'host'){
+    var n = 0; for(var k in net.conns) if(net.conns[k].authed) n++;
+    b.textContent = 'Hosting · Code ' + net.code + ' · ' + n + ' verbunden';
+  } else {
+    b.textContent = 'Mehrspieler · verbunden';
+  }
+}
+
+function netShutdown(){
+  if(net.peer){ try{ net.peer.destroy(); }catch(e){} }  // schließt alle Verbindungen
+  net.peer = null; net.conns = {}; net.hostConn = null;
+  net.mode = 'off'; net.myId = 0; net.code = '';
+  clearAvatars();
+  updateNetBadge();
+}
+
+window.addEventListener('beforeunload', function(){
+  if(net.mode !== 'off') netShutdown();
+});
+
+/* ============ Menü-Logik ============ */
+function show(id){
+  var scr = document.querySelectorAll('.screen');
+  for(var i=0; i<scr.length; i++) scr[i].classList.remove('open');
+  if(id) document.getElementById(id).classList.add('open');
+}
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._tm);
+  t._tm = setTimeout(function(){ t.style.display = 'none'; }, 1800);
+}
+
+document.getElementById('btnSingle').addEventListener('click', function(){
+  renderWorldList(); show('scrWorlds');
+});
+document.getElementById('btnMulti').addEventListener('click', function(){
+  document.getElementById('joinName').value = settings.name || 'Spieler';
+  document.getElementById('joinPass').value = '';
+  document.getElementById('joinCode').value = '';
+  document.getElementById('joinStatus').textContent = '';
+  document.getElementById('joinError').textContent = '';
+  show('scrJoin');
+});
+var settingsReturn = 'scrMain';
+document.getElementById('btnSettings').addEventListener('click', function(){
+  settingsReturn = 'scrMain'; show('scrSettings');
+});
+document.getElementById('btnExit').addEventListener('click', function(){
+  window.close();
+  setTimeout(function(){ showToast('Du kannst den Tab jetzt schließen'); }, 100);
+});
+document.getElementById('btnWorldsBack').addEventListener('click', function(){ show('scrMain'); });
+document.getElementById('btnNewWorld').addEventListener('click', function(){
+  document.getElementById('inWorldName').value = 'Neue Welt';
+  document.getElementById('inSeed').value = '';
+  createMode = 'survival'; createDiff = 2; createCheats = false;
+  refreshCreateUI();
+  show('scrCreate');
+});
+
+function renderWorldList(){
+  var list = document.getElementById('worldList');
+  list.innerHTML = '';
+  if(!worlds.length){
+    list.innerHTML = '<div class="empty">Noch keine Welten. Erstell deine erste!</div>';
+    return;
+  }
+  worlds.forEach(function(w){
+    var div = document.createElement('div');
+    div.className = 'world';
+    var info = document.createElement('div');
+    info.className = 'winfo';
+    var name = document.createElement('div');
+    name.className = 'wname';
+    name.textContent = w.name;
+    var meta = document.createElement('div');
+    meta.className = 'wmeta';
+    meta.textContent = (w.mode === 'survival' ? 'Überleben' : 'Kreativ') +
+      ' · ' + DIFFS[w.diff] + ' · Cheats ' + (w.cheats ? 'an' : 'aus') + ' · Seed ' + w.seed;
+    info.appendChild(name); info.appendChild(meta);
+    var play = document.createElement('button');
+    play.textContent = 'Spielen';
+    play.addEventListener('click', function(){ startWorld(w); });
+    var del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = 'X';
+    del.addEventListener('click', function(){
+      if(del.textContent === 'X'){
+        del.textContent = 'Sicher?';
+        setTimeout(function(){ del.textContent = 'X'; }, 2500);
+        return;
+      }
+      worlds = worlds.filter(function(o){ return o.id !== w.id; });
+      saveWorlds();
+      store.del('bc_edits_' + w.id);
+      renderWorldList();
+    });
+    div.appendChild(info); div.appendChild(play); div.appendChild(del);
+    list.appendChild(div);
+  });
+}
+
+var createMode = 'survival', createDiff = 2, createCheats = false;
+function refreshCreateUI(){
+  var m = document.getElementById('tglMode');
+  m.textContent = createMode === 'survival' ? 'Überleben' : 'Kreativ';
+  m.classList.toggle('on', createMode === 'creative');
+  document.getElementById('tglDiff').textContent = DIFFS[createDiff];
+  var c = document.getElementById('tglCheats');
+  c.textContent = createCheats ? 'An' : 'Aus';
+  c.classList.toggle('on', createCheats);
+}
+document.getElementById('tglMode').addEventListener('click', function(){
+  createMode = createMode === 'survival' ? 'creative' : 'survival'; refreshCreateUI();
+});
+document.getElementById('tglDiff').addEventListener('click', function(){
+  createDiff = (createDiff + 1) % DIFFS.length; refreshCreateUI();
+});
+document.getElementById('tglCheats').addEventListener('click', function(){
+  createCheats = !createCheats; refreshCreateUI();
+});
+document.getElementById('btnCreateBack').addEventListener('click', function(){
+  renderWorldList(); show('scrWorlds');
+});
+document.getElementById('btnCreateGo').addEventListener('click', function(){
+  var name = document.getElementById('inWorldName').value.trim() || 'Neue Welt';
+  var seedIn = document.getElementById('inSeed').value.trim();
+  var seed;
+  if(seedIn === '') seed = Math.floor(Math.random()*999999) + 1;
+  else if(/^\d+$/.test(seedIn)) seed = parseInt(seedIn) || 1;
+  else {
+    seed = 0;
+    for(var i=0; i<seedIn.length; i++) seed = ((seed*31) + seedIn.charCodeAt(i)) % 999999;
+    seed = seed || 1;
+  }
+  var w = {
+    id: 'w' + Date.now() + Math.floor(Math.random()*1000),
+    name: name, seed: seed,
+    mode: createMode, diff: createDiff, cheats: createCheats,
+    created: Date.now(), player: null
+  };
+  worlds.push(w);
+  saveWorlds();
+  startWorld(w);
+});
+
+function refreshSettingsUI(){
+  document.getElementById('inName').value = settings.name || 'Spieler';
+  document.getElementById('rngDist').value = settings.dist;
+  document.getElementById('valDist').textContent = settings.dist + ' Ch.';
+  document.getElementById('rngFov').value = settings.fov;
+  document.getElementById('valFov').textContent = settings.fov;
+  document.getElementById('rngSens').value = settings.sens;
+  document.getElementById('valSens').textContent = settings.sens + '%';
+}
+document.getElementById('inName').addEventListener('input', function(e){
+  settings.name = e.target.value.trim().slice(0,16) || 'Spieler';
+  saveSettings();
+});
+document.getElementById('rngDist').addEventListener('input', function(e){
+  settings.dist = parseInt(e.target.value);
+  document.getElementById('valDist').textContent = settings.dist + ' Ch.';
+  applySettings(); saveSettings();
+});
+document.getElementById('rngFov').addEventListener('input', function(e){
+  settings.fov = parseInt(e.target.value);
+  document.getElementById('valFov').textContent = settings.fov;
+  applySettings(); saveSettings();
+});
+document.getElementById('rngSens').addEventListener('input', function(e){
+  settings.sens = parseInt(e.target.value);
+  document.getElementById('valSens').textContent = settings.sens + '%';
+  saveSettings();
+});
+document.getElementById('btnSettingsBack').addEventListener('click', function(){
+  show(settingsReturn);
+});
+
+var pauseBtn = document.getElementById('btnPause');
+pauseBtn.addEventListener('click', openPause);
+function openPause(){
+  if(!inGame || paused) return;
+  if(invOpen) closeInv();
+  paused = true;
+  if(locked) document.exitPointerLock();
+  if(net.mode !== 'client'){ savePlayerState(); if(editsDirty) saveEdits(); }
+  // Pausenmenü an Rolle anpassen
+  var hostBtn = document.getElementById('btnHostOpen');
+  var quitBtn = document.getElementById('btnSaveQuit');
+  if(net.mode === 'client'){
+    hostBtn.style.display = 'none';
+    quitBtn.textContent = 'Verbindung trennen';
+  } else {
+    hostBtn.style.display = '';
+    hostBtn.textContent = (net.mode === 'host') ? 'Mehrspieler verwalten' : 'Welt hosten';
+    quitBtn.textContent = 'Speichern und Hauptmenü';
+  }
+  show('scrPause');
+}
+document.getElementById('btnResume').addEventListener('click', function(){
+  paused = false;
+  show(null);
+  if(!isTouch) canvas.requestPointerLock();
+});
+document.getElementById('btnPauseSettings').addEventListener('click', function(){
+  settingsReturn = 'scrPause'; show('scrSettings');
+});
+document.getElementById('btnHostOpen').addEventListener('click', function(){
+  show('scrHost');
+  refreshPlayerList();
+  if(net.mode === 'host'){
+    refreshHostUI();
+    return;
+  }
+  // Code erzeugen (lädt bei Bedarf PeerJS nach)
+  document.getElementById('hostCodeBig').textContent = '...';
+  document.getElementById('tglHostPass').textContent = net.usePassword ? 'An' : 'Aus';
+  document.getElementById('tglHostPass').classList.toggle('on', net.usePassword);
+  document.getElementById('hostPassRow').style.display = net.usePassword ? '' : 'none';
+  document.getElementById('hostPass').value = net.password;
+  hostStart().then(function(code){
+    refreshHostUI();
+    updateNetBadge();
+  }).catch(function(e){
+    document.getElementById('hostCodeBig').textContent = 'Fehler';
+    showToast(e.message || String(e));
+  });
+});
+document.getElementById('btnSaveQuit').addEventListener('click', function(){
+  leaveToMenu(net.mode !== 'client');
+});
+
+/* Spiel verlassen, optional speichern, Netzwerk schließen */
+function leaveToMenu(doSave){
+  if(doSave && net.mode !== 'client'){
+    savePlayerState();
+    if(editsDirty) saveEdits();
+  }
+  netShutdown();
+  inGame = false; paused = false; invOpen = false;
+  scrInv.classList.remove('open');
+  document.body.classList.remove('playing','flying','creativeMode');
+  unloadAllChunks();
+  clearMobs();
+  furnaces = {}; openFurnaceKey = null;
+  current = null;
+  show('scrMain');
+}
+
+/* ============ Mehrspieler-UI ============ */
+function showJoinError(msg){
+  document.getElementById('joinError').textContent = msg;
+  document.getElementById('joinStatus').textContent = '';
+  var btn = document.getElementById('btnJoinGo');
+  btn.textContent = 'Beitreten'; btn.disabled = false;
+}
+document.getElementById('btnJoinBack').addEventListener('click', function(){
+  if(net.mode === 'off' && net.peer){ try{ net.peer.destroy(); }catch(e){} net.peer = null; net.hostConn = null; }
+  show('scrMain');
+});
+// nur Ziffern im Code-Feld
+document.getElementById('joinCode').addEventListener('input', function(e){
+  e.target.value = e.target.value.replace(/\D/g, '').slice(0,6);
+});
+document.getElementById('btnJoinGo').addEventListener('click', function(){
+  var code = document.getElementById('joinCode').value.replace(/\D/g, '');
+  var name = document.getElementById('joinName').value.trim().slice(0,16) || 'Spieler';
+  var pass = document.getElementById('joinPass').value;
+  document.getElementById('joinError').textContent = '';
+  if(code.length !== 6){ document.getElementById('joinError').textContent = 'Bitte einen 6-stelligen Code eingeben.'; return; }
+  settings.name = name; saveSettings();
+  var btn = document.getElementById('btnJoinGo');
+  btn.textContent = 'Verbinde...'; btn.disabled = true;
+  document.getElementById('joinStatus').textContent = 'Suche Host...';
+  clientConnect(code, name, pass).then(function(){
+    document.getElementById('joinStatus').textContent = 'Verbunden, lade Welt...';
+    // Weiter geht es automatisch, sobald die welcome-Nachricht eintrifft.
+  }).catch(function(e){
+    showJoinError(e.message || String(e));
+  });
+});
+
+/* ----- Host-Bildschirm ----- */
+function refreshHostUI(){
+  var t = document.getElementById('tglHostPass');
+  t.textContent = net.usePassword ? 'An' : 'Aus';
+  t.classList.toggle('on', net.usePassword);
+  document.getElementById('hostPassRow').style.display = net.usePassword ? '' : 'none';
+  document.getElementById('hostPass').value = net.password;
+  document.getElementById('hostCodeBig').textContent = net.code || '......';
+}
+document.getElementById('tglHostPass').addEventListener('click', function(){
+  net.usePassword = !net.usePassword;
+  if(!net.usePassword) net.password = '';
+  refreshHostUI();
+});
+document.getElementById('hostPass').addEventListener('input', function(e){
+  net.password = e.target.value;
+});
+document.getElementById('btnCopyCode').addEventListener('click', function(){
+  if(net.code) copyText(net.code, this, 'Code kopieren');
+});
+document.getElementById('btnHostBack').addEventListener('click', function(){
+  paused = false;
+  show(null);
+  if(!isTouch) canvas.requestPointerLock();
+});
+
+function refreshPlayerList(){
+  var el = document.getElementById('playerList');
+  if(net.mode !== 'host'){ el.innerHTML = '<div class="netHint">Noch niemand verbunden.</div>'; return; }
+  var rows = [];
+  rows.push('<div class="pl"><span>' + esc(settings.name) + ' (du, Host)</span></div>');
+  for(var id in net.conns){
+    var p = net.conns[id];
+    if(!p.authed) continue;
+    rows.push('<div class="pl"><span>' + esc(p.name) + '</span><button data-id="' + id + '">Kick</button></div>');
+  }
+  if(rows.length === 1) rows.push('<div class="netHint">Gib deinen Code weiter, damit Freunde beitreten können.</div>');
+  el.innerHTML = rows.join('');
+  var btns = el.querySelectorAll('button[data-id]');
+  for(var i=0; i<btns.length; i++){
+    btns[i].addEventListener('click', function(){ hostKick(this.getAttribute('data-id')|0); });
+  }
+}
+function esc(s){ return String(s).replace(/[<>&]/g, function(c){ return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;'; }); }
+function copyText(text, btn, reset){
+  var ok = function(){ btn.textContent = 'Kopiert!'; setTimeout(function(){ btn.textContent = reset; }, 1200); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(ok).catch(function(){ fallbackCopy(text); ok(); });
+  } else { fallbackCopy(text); ok(); }
+}
+function fallbackCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  document.body.removeChild(ta);
+}
+
+/* ============ Client betritt die Host-Welt ============ */
+function startClientWorld(welcome){
+  current = {
+    id:'remote', name:welcome.name || 'Mehrspieler-Welt',
+    seed:welcome.seed, mode:welcome.mode || 'survival',
+    diff:(typeof welcome.diff === 'number') ? welcome.diff : 2,
+    cheats:false, player:null
+  };
+  SEED = welcome.seed;
+  gameMode = welcome.mode || 'survival';
+  flying = false;
+  document.body.classList.remove('flying');
+  document.body.classList.toggle('creativeMode', gameMode === 'creative');
+
+  unloadAllChunks();
+  clearAvatars();
+  clearMobs();
+  furnaces = {}; openFurnaceKey = null;
+  editsByChunk = welcome.edits || {};
+  editsDirty = false;
+
+  slots = new Array(TOTAL_SLOTS).fill(null);
+  health = 20; hunger = 20;
+  if(gameMode === 'creative'){
+    var items = [GRASS, DIRT, STONE, WOOD, LEAVES, SAND, PLANK];
+    for(var j=0; j<items.length; j++) slots[j] = { id:items[j], count:MAX_STACK };
+  }
+  selected = 0;
+  fallPeak = 0;
+
+  player.pos.set(WORLD_BLOCKS/2 + 0.5, 40, WORLD_BLOCKS/2 + 0.5);
+  player.yaw = 0; player.pitch = 0; player.vel.set(0,0,0);
+  spawnHeight();
+
+  inGame = true; paused = false; invOpen = false;
+  invDirty = true; statsDirty = true;
+  document.body.classList.add('playing');
+  show(null);
+  applySettings();
+  updateChunks(true);
+  processQueue(30);
+  updateNetBadge();
+  if(!isTouch) canvas.requestPointerLock();
+  showToast('Mit "' + (welcome.name || 'Welt') + '" verbunden');
+}
+
+/* ============ Welt starten ============ */
+function startWorld(w){
+  current = w;
+  SEED = w.seed;
+  unloadAllChunks();
+  clearMobs();
+  furnaces = {}; openFurnaceKey = null;
+  editsByChunk = {};
+  editsDirty = false;
+  gameMode = w.mode;
+  flying = false;
+  document.body.classList.remove('flying');
+
+  store.get('bc_edits_' + w.id).then(function(raw){
+    if(raw){ try{ editsByChunk = JSON.parse(raw) || {}; }catch(e){ editsByChunk = {}; } }
+
+    slots = new Array(TOTAL_SLOTS).fill(null);
+    health = 20; hunger = 20;
+
+    if(w.player){
+      player.pos.set(w.player.x, w.player.y, w.player.z);
+      player.yaw = w.player.yaw; player.pitch = w.player.pitch;
+      if(w.player.mode) gameMode = w.player.mode;
+      if(typeof w.player.hp === 'number') health = w.player.hp;
+      if(typeof w.player.food === 'number') hunger = w.player.food;
+      if(w.player.inv){
+        // Lager (0..39) und Rüstung (45..48) laden, Craftfelder und Ofen bleiben leer (Öfen kommen separat)
+        for(var i=0; i<SLOTS_N; i++) slots[i] = w.player.inv[i] || null;
+        for(var a=ARMOR_0; a<ARMOR_END; a++) slots[a] = w.player.inv[a] || null;
+      }
+    } else {
+      player.pos.set(WORLD_BLOCKS/2 + 0.5, 40, WORLD_BLOCKS/2 + 0.5);
+      player.yaw = 0; player.pitch = 0;
+      spawnHeight();
+      // Kreativ startet mit gefüllter Hotbar, Überleben mit leerer
+      if(gameMode === 'creative'){
+        var items = [GRASS, DIRT, STONE, WOOD, LEAVES, SAND, PLANK];
+        for(var j=0; j<items.length; j++) slots[j] = { id:items[j], count:MAX_STACK };
+      }
+    }
+    player.vel.set(0,0,0);
+    fallPeak = 0;
+    selected = 0;
+    // gespeicherte Öfen (jeder mit eigenem Inhalt) wiederherstellen
+    if(w.furnaces){
+      for(var fk in w.furnaces){
+        var s = w.furnaces[fk];
+        if(!s) continue;
+        var nf = newFurnace(s.x, s.y, s.z);
+        nf.in = s.in || null; nf.fuel = s.fuel || null; nf.out = s.out || null;
+        nf.burnLeft = s.burnLeft || 0; nf.burnMax = s.burnMax || 0; nf.prog = s.prog || 0;
+        furnaces[fk] = nf;
+      }
+    }
+    document.body.classList.toggle('creativeMode', gameMode === 'creative');
+
+    inGame = true; paused = false; invOpen = false;
+    invDirty = true; statsDirty = true;
+    document.body.classList.add('playing');
+    show(null);
+    applySettings();
+    updateChunks(true);
+    processQueue(30);
+    if(!isTouch) canvas.requestPointerLock();
+  });
+}
+
+/* ============ Init ============ */
+buildInvUI();
+store.get('bc_settings').then(function(raw){
+  if(raw){ try{ var s = JSON.parse(raw); if(s) settings = Object.assign(settings, s); }catch(e){} }
+  refreshSettingsUI();
+  applySettings();
+});
+store.get('bc_worlds').then(function(raw){
+  if(raw){ try{ worlds = JSON.parse(raw) || []; }catch(e){ worlds = []; } }
+});
+loop();
+
+})();
+</script>
+</body>
+</html>
