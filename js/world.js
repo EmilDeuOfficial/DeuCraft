@@ -39,7 +39,7 @@ function genChunk(cx,cz){
       var h = terrainHeight(x0+lx, z0+lz);
       for(var y=0; y<=h; y++){
         var blk;
-        if(y === 0) blk = STONE;
+        if(y === 0) blk = BEDROCK;
         else if(y === h) blk = (h <= 12) ? SAND : GRASS;
         else if(y >= h-3) blk = (h <= 12) ? SAND : DIRT;
         else {

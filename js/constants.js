@@ -6,12 +6,13 @@ var AIR=0, GRASS=1, DIRT=2, STONE=3, WOOD=4, LEAVES=5, SAND=6, PLANK=7, BENCH=8,
 var STICK=10, WPICK=11, WAXE=12, WSHOVEL=13, WSWORD=14, SPICK=15, SAXE=16, SSHOVEL=17, SSWORD=18;
 var COAL_ORE=19, FURNACE=20, WOOL=21;                         // Blöcke
 var COAL=22, RAW_BEEF=23, COOKED_BEEF=24, RAW_MUTTON=25, COOKED_MUTTON=26, LEATHER=27;   // Items
+var BEDROCK=28;                                                // Unzerstörbarer Boden
 var DIFFS = ['Friedlich','Einfach','Normal','Schwer'];
 var ITEM_NAMES = {1:'Gras',2:'Erde',3:'Stein',4:'Holz',5:'Laub',6:'Sand',7:'Bretter',8:'Werkbank',9:'Apfel',
   10:'Stock',11:'Holzspitzhacke',12:'Holzaxt',13:'Holzschaufel',14:'Holzschwert',
   15:'Steinspitzhacke',16:'Steinaxt',17:'Steinschaufel',18:'Steinschwert',
   19:'Kohleerz',20:'Ofen',21:'Wolle',22:'Kohle',23:'Rohes Rindfleisch',24:'Steak',
-  25:'Rohes Hammelfleisch',26:'Gebratenes Hammelfleisch',27:'Leder'};
+  25:'Rohes Hammelfleisch',26:'Gebratenes Hammelfleisch',27:'Leder',28:'Grundgestein'};
 var BREAK_TIME = {1:0.7, 2:0.6, 3:3.5, 4:1.6, 5:0.35, 6:0.6, 7:1.6, 8:1.8, 19:4.2, 20:4.5, 21:0.6};
 var MAX_STACK = 64;
 // Essbares: Item -> Hunger das es auffüllt

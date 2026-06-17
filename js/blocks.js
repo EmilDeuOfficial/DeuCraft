@@ -7,6 +7,7 @@ function blockDrop(id){
   return id;   // Standard: Block selbst
 }
 function doBreakDrop(x,y,z,id){
+  if(id === BEDROCK) return;
   setB(x,y,z,AIR);
   rebuildAt(x,z);
   netSendBlock(x,y,z,AIR);
@@ -66,6 +67,7 @@ function updateMining(dt){
   var key2 = r.hit.join(',');
   if(mineTarget !== key2){ mineTarget = key2; mineTime = 0; }
   var id = getB(r.hit[0], r.hit[1], r.hit[2]);
+  if(id === BEDROCK){ mineTarget = null; mineTime = 0; mineProgEl.style.display = 'none'; return; }
   var held = slots[selected] ? slots[selected].id : 0;
   var need = (BREAK_TIME[id] || 1) / toolSpeedFor(id, held);
   mineTime += dt;
