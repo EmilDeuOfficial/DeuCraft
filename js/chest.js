@@ -11,6 +11,8 @@ function syncMirrorToChest(){
   if(!openChestKey) return;
   if(!chests[openChestKey]) chests[openChestKey] = new Array(27).fill(null);
   for(var i=0; i<27; i++) chests[openChestKey][i] = slots[CHEST_0+i] || null;
+  if(net.mode === 'host') broadcastChestState(openChestKey);
+  else if(net.mode === 'client') notifyChestChange();
 }
 
 function openChest(x,y,z){

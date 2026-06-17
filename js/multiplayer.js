@@ -80,6 +80,14 @@ function notifyFurnaceChange(){
   var f = furnaces[openFurnaceKey];
   jsend(net.hostConn, { t:'furnace_set', k:openFurnaceKey, in:f.in, fuel:f.fuel, out:f.out });
 }
+function broadcastChestState(ck){
+  if(net.mode !== 'host') return;
+  hostBroadcast({ t:'chest', k:ck, slots:chests[ck] || [] });
+}
+function notifyChestChange(){
+  if(net.mode !== 'client' || !openChestKey) return;
+  jsend(net.hostConn, { t:'chest_set', k:openChestKey, slots:chests[openChestKey] || [] });
+}
 
 /* ---------- HOST ---------- */
 function hostStart(){
@@ -139,6 +147,7 @@ function hostHandle(id, m){
     });
     sendEditsTo(peer.conn);
     jsend(peer.conn, { t:'furnace_all', data:furnaces });
+    jsend(peer.conn, { t:'chest_all', data:chests });
     showToast(peer.name + ' ist beigetreten');
     refreshPlayerList();
     updateNetBadge();
@@ -166,6 +175,9 @@ function hostHandle(id, m){
     if(!fz) return;
     fz.in = m.in || null; fz.fuel = m.fuel || null; fz.out = m.out || null;
     hostBroadcast({ t:'furnace', k:m.k, in:fz.in, fuel:fz.fuel, out:fz.out, burnLeft:fz.burnLeft, burnMax:fz.burnMax, prog:fz.prog }, id);
+  } else if(m.t === 'chest_set'){
+    chests[m.k] = m.slots || [];
+    hostBroadcast({ t:'chest', k:m.k, slots:chests[m.k] }, id);
   }
 }
 function sendEditsTo(conn){
@@ -271,6 +283,11 @@ function clientHandle(m){
       furnaces[fk] = { x:fd.x, y:fd.y, z:fd.z, in:fd.in||null, fuel:fd.fuel||null, out:fd.out||null,
                        burnLeft:fd.burnLeft||0, burnMax:fd.burnMax||0, prog:fd.prog||0 };
     }
+  } else if(m.t === 'chest'){
+    chests[m.k] = m.slots || [];
+    if(openChestKey === m.k){ syncChestToMirror(); invDirty = true; renderInvUI(); }
+  } else if(m.t === 'chest_all'){
+    for(var ck in m.data){ chests[ck] = m.data[ck] || []; }
   }
 }
 function onClientLost(reason){
