@@ -125,7 +125,8 @@
   <h2>Einstellungen</h2>
   <div class="panel">
     <div class="frow"><label>Spielername</label><input type="text" id="inName" maxlength="16" value="Spieler"></div>
-    <div class="frow"><label>Sichtweite</label><input type="range" id="rngDist" min="3" max="8" step="1"><span class="rangeval" id="valDist"></span></div>
+    <div class="frow"><label>Sichtweite</label><input type="range" id="rngDist" min="3" max="64" step="1"><span class="rangeval" id="valDist"></span></div>
+    <div class="frow"><label>Nebel</label><button class="toggle on" id="tglFog">An</button></div>
     <div class="frow"><label>Sichtfeld (FOV)</label><input type="range" id="rngFov" min="60" max="100" step="1"><span class="rangeval" id="valFov"></span></div>
     <div class="frow"><label>Empfindlichkeit</label><input type="range" id="rngSens" min="50" max="200" step="5"><span class="rangeval" id="valSens"></span></div>
   </div>
@@ -171,7 +172,9 @@
   <button class="btn" id="btnSaveQuit">Speichern und Hauptmenü</button>
 </div>
 
+<div id="nightOverlay"></div>
 <div id="toast"></div>
+<div id="hurtFlash"></div>
 
 <!-- Todesbildschirm -->
 <div id="deathScreen">
@@ -200,6 +203,7 @@
 <script src="js/blocks.js"></script>
 <script src="js/animals.js"></script>
 <script src="js/multiplayer.js"></script>
+<script src="js/daynight.js"></script>
 <script src="js/menus.js"></script>
 <script src="js/multiplayer-ui.js"></script>
 <script src="js/client.js"></script>

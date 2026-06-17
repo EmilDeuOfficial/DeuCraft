@@ -134,6 +134,10 @@ function refreshSettingsUI(){
   document.getElementById('valFov').textContent = settings.fov;
   document.getElementById('rngSens').value = settings.sens;
   document.getElementById('valSens').textContent = settings.sens + '%';
+  var fogBtn = document.getElementById('tglFog');
+  var fogOn = settings.fog !== false;
+  fogBtn.textContent = fogOn ? 'An' : 'Aus';
+  fogBtn.classList.toggle('on', fogOn);
 }
 document.getElementById('inName').addEventListener('input', function(e){
   settings.name = e.target.value.trim().slice(0,16) || 'Spieler';
@@ -142,6 +146,11 @@ document.getElementById('inName').addEventListener('input', function(e){
 document.getElementById('rngDist').addEventListener('input', function(e){
   settings.dist = parseInt(e.target.value);
   document.getElementById('valDist').textContent = settings.dist + ' Ch.';
+  applySettings(); saveSettings();
+});
+document.getElementById('tglFog').addEventListener('click', function(){
+  settings.fog = settings.fog === false;
+  refreshSettingsUI();
   applySettings(); saveSettings();
 });
 document.getElementById('rngFov').addEventListener('input', function(e){

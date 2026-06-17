@@ -6,6 +6,7 @@ function startWorld(w){
   clearMobs();
   furnaces = {}; openFurnaceKey = null;
   chests = {}; openChestKey = null; chestOpen = false;
+  dayTime = 0.25;
   editsByChunk = {};
   editsDirty = false;
   gameMode = w.mode;

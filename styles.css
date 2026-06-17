@@ -244,6 +244,23 @@
   }
   body.playing #netBadge.on { display:block; }
 
+  /* ===== Nacht-Overlay ===== */
+  #nightOverlay {
+    position:fixed; inset:0; z-index:1; pointer-events:none;
+    background:#06091a; opacity:0;
+  }
+
+  /* ===== Trefferblitz ===== */
+  #hurtFlash {
+    position:fixed; inset:0; z-index:15; pointer-events:none; opacity:0;
+    background:rgba(200,0,0,0.45);
+  }
+  #hurtFlash.on { animation: hurtPulse 0.5s forwards; }
+  @keyframes hurtPulse {
+    0%   { opacity:1; }
+    100% { opacity:0; }
+  }
+
   /* ===== Todesbildschirm ===== */
   #deathScreen {
     display: none;
