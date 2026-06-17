@@ -245,10 +245,25 @@ function buildBlob(id, cells, palette, ox, oy){
   }
   itemCv[id] = cv;
 }
-// Kohle (schwarzer Klumpen)
+// Kohle (schwarzer Klumpen) – zentriertes Oval 16×16
 buildBlob(COAL, [
-  '        ','   KK   ',' KKKKK  ','KKKKLKK ','KKLKKKK ','KKKKKK  ',' KKKK   ','        '
-], {K:'#2a2a2a', L:'#555'});
+  '                ',
+  '      KKKK      ',
+  '    LKKKKKKK    ',
+  '   LKKKKKKKKK   ',
+  '  KKLKKKKKKKKK  ',
+  ' KKKLKKKKKKKKKK ',
+  ' KKKKKKLKKKKKKK ',
+  ' KLKKKKKKKKKKKK ',
+  ' KKKKKKKKLKKKKK ',
+  ' KKKLKKKKKKKKKK ',
+  '  KKKKLKKKKKKK  ',
+  '   KLKKKKKKKK   ',
+  '    KKLKKKKK    ',
+  '     LKKKKK     ',
+  '      KKKK      ',
+  '                ',
+], {K:'#2a2a2a', L:'#555'}, 0, 0);
 // Rohes Rindfleisch – zentriertes Oval 16×16 (Fettmaserung links)
 buildBlob(RAW_BEEF, [
   '                ',
