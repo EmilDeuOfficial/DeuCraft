@@ -173,6 +173,7 @@ document.addEventListener('touchend', function(e){
       joyKnob.style.transform = 'translate(0,0)';
     }
     if(t.identifier === lookId){
+      e.preventDefault(); // prevent ghost-click from landing on newly opened overlay
       if(!lookMoved && performance.now() - lookT0 < 300 && inGame && !paused && !invOpen){
         if(placeMode){
           useItem();
