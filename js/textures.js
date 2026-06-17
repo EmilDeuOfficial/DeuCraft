@@ -36,18 +36,8 @@ drawDirt(2);
     if(tn(1,x,2,8) > 0.7 && depth < 5) px(1,x,depth+1,'#578c2c');
   }
 })();
-(function(){ var g=['#909090','#8a8a8a','#9a9a9a','#858585'];
+(function(){ var g=['#909090','#8a8a8a','#9a9a9a','#858585','#939393','#878787'];
   for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(3,x,y, pick(g, tn(3,x,y,1)));
-  for(var i=0;i<6;i++){
-    var fx = 1+Math.floor(tn(3,i,7,2)*13), fy = 1+Math.floor(tn(3,i,13,3)*13);
-    px(3,fx,fy,'#6e6e6e'); px(3,fx+1,fy,'#757575');
-    px(3,fx,fy+1,'#757575'); px(3,fx+1,fy+1,'#a8a8a8');
-    if(tn(3,i,19,4) > 0.5) px(3,fx+2,fy,'#6e6e6e');
-  }
-  for(var r=0;r<3;r++){
-    var rx = 2+Math.floor(tn(3,r,29,5)*11), ry = 2+Math.floor(tn(3,r,37,6)*11);
-    px(3,rx,ry,'#646464'); px(3,rx+1,ry+1,'#646464'); px(3,rx+2,ry+1,'#6e6e6e');
-  }
 })();
 (function(){ var bark=['#6b5232','#5f4729','#73593a','#553f23'];
   for(var x=0;x<16;x++){
