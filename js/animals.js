@@ -86,6 +86,22 @@ function mobNearAnyPlayer(m){
   }
   return false;
 }
+function hasTorchNearby(wx, wy, wz, r){
+  var r2 = r * r;
+  var x0 = Math.floor(wx) - r, x1 = Math.floor(wx) + r;
+  var y0 = Math.max(0, Math.floor(wy) - r), y1 = Math.min(SY - 1, Math.floor(wy) + r);
+  var z0 = Math.floor(wz) - r, z1 = Math.floor(wz) + r;
+  for(var bx = x0; bx <= x1; bx++){
+    for(var by = y0; by <= y1; by++){
+      for(var bz = z0; bz <= z1; bz++){
+        var dx = bx + 0.5 - wx, dy = by + 0.5 - wy, dz = bz + 0.5 - wz;
+        if(dx*dx + dy*dy + dz*dz <= r2 && isTorch(getB(bx, by, bz))) return true;
+      }
+    }
+  }
+  return false;
+}
+
 function trySpawnMobs(){
   if(mobs.length >= MOB_CAP) return;
   var positions = allPlayerPositions();
@@ -100,6 +116,7 @@ function trySpawnMobs(){
     if(getB(Math.floor(x), h, Math.floor(z)) !== GRASS) continue;
     var sr = Math.random();
     var spawnType = (isNight() && sr < 0.3) ? 'zombie' : (Math.random() < 0.5 ? 'cow' : 'sheep');
+    if(spawnType === 'zombie' && hasTorchNearby(Math.floor(x)+0.5, h+1, Math.floor(z)+0.5, 5)) continue;
     spawnMob(spawnType, Math.floor(x)+0.5, h+1, Math.floor(z)+0.5);
     return;
   }
@@ -488,6 +505,7 @@ function loop(){
   if(invDirty){ invDirty = false; renderHotbar(); if(invOpen) renderInvUI(); }
   if(statsDirty){ statsDirty = false; renderStats(); }
   renderer.render(scene, camera);
+  if(inGame) renderHand(dt);
 
   if(inGame){
     fpsC++;
