@@ -324,7 +324,8 @@ function setPanelMode(mode){   // 'craft' | 'table' | 'furnace' | 'chest'
   document.getElementById('chestWrap').style.display    = (mode === 'chest') ? 'flex' : 'none';
   var title = mode === 'table' ? 'Werkbank (3x3)' : mode === 'furnace' ? 'Ofen' : mode === 'chest' ? 'Truhe' : 'Handwerk (2x2)';
   document.getElementById('craftTitle').textContent = title;
-  document.getElementById('craftHint').textContent =
+  var ch = document.getElementById('craftHint');
+  if(ch) ch.textContent =
     mode === 'table' ? 'Werkzeuge: 3 Material oben + 2 Stöcke (Spitzhacke) usw.'
     : mode === 'furnace' ? 'Oben rein, Brennstoff (Kohle/Holz) drunter. Rohes Fleisch wird gebraten.'
     : mode === 'chest' ? 'Klick: Item bewegen. Rechtsklick / lang drücken: halbieren.'

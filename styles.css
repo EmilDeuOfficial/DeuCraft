@@ -63,10 +63,12 @@
     position:fixed; top:8px; z-index:6; width:44px; height:44px;
     background:rgba(0,0,0,.4); border:2px solid rgba(255,255,255,.4);
     color:#fff; font-size:18px; cursor:pointer; padding:0;
-    display:flex; align-items:center; justify-content:center;
   }
   #btnPause { right:8px; }
   #btnInv { right:60px; }
+  body.playing #btnPause, body.playing #btnInv {
+    display:flex !important; align-items:center; justify-content:center;
+  }
 
   /* ===== Touch UI ===== */
   .touch-only { display:none !important; }
