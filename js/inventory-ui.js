@@ -479,9 +479,9 @@ function closeInv(){
 /* Inventar sortieren: gleiche Items zusammenführen, nach Stapelmenge absteigend,
    Lücken nach hinten schieben. Hotbar (0-9) + Hauptinventar (10-39) gemeinsam. */
 function sortInventory(){
-  /* Alle Items sammeln */
+  /* Nur Hauptinventar (Slots 10–39), Hotbar bleibt unberührt */
   var items = [];
-  for(var i = 0; i < SLOTS_N; i++){
+  for(var i = HOTBAR_N; i < SLOTS_N; i++){
     if(slots[i]) items.push({ id: slots[i].id, count: slots[i].count });
     slots[i] = null;
   }
@@ -500,8 +500,8 @@ function sortInventory(){
   }
   /* Absteigend nach Anzahl sortieren, bei Gleichstand nach ID (stabil) */
   stacks.sort(function(a, b){ return b.count !== a.count ? b.count - a.count : a.id - b.id; });
-  /* Zurück in Slots schreiben */
-  for(var j = 0; j < SLOTS_N; j++) slots[j] = stacks[j] || null;
+  /* Zurück in Hauptinventar-Slots schreiben */
+  for(var j = 0; j < INV_N; j++) slots[HOTBAR_N + j] = stacks[j] || null;
   invDirty = true;
   renderInvUI();
 }
