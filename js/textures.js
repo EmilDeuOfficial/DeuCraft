@@ -1,5 +1,5 @@
 /* ============ Textur-Atlas: 16x16 Pixel-Art ============ */
-var TILES = 15, TPX = 16;
+var TILES = 16, TPX = 16;
 var atlasCv = document.createElement('canvas');
 atlasCv.width = TILES*TPX; atlasCv.height = TPX;
 var actx = atlasCv.getContext('2d');
@@ -147,6 +147,15 @@ drawDirt(2);
   for(var k=0;k<10;k++){ var rx=Math.floor(tn(14,k,3,2)*16), ry=Math.floor(tn(14,k,7,3)*16); px(14,rx,ry,'#d4d4d4'); }
 })();
 
+/* Tile 15: Grundgestein (dunkelgrau mit schwarzen Flecken) */
+(function(){
+  var bs = ['#3a3a3a','#2e2e2e','#444444','#383838'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(15,x,y, pick(bs, tn(15,x,y,1)));
+  [[2,2],[3,2],[2,3],[7,5],[8,5],[7,6],[8,6],[12,3],[13,3],[12,4],
+   [4,10],[5,10],[5,11],[10,9],[11,9],[10,10],[1,13],[2,13],[13,12],[14,12],[13,13]
+  ].forEach(function(p){ px(15,p[0],p[1],'#111'); });
+})();
+
 /* Apfel-Icon (eigenes Canvas) */
 var appleCv = document.createElement('canvas');
 appleCv.width = 16; appleCv.height = 16;
@@ -255,6 +264,7 @@ blockTiles[GRASS]=[0,2,1]; blockTiles[DIRT]=[2,2,2]; blockTiles[STONE]=[3,3,3];
 blockTiles[WOOD]=[5,5,4]; blockTiles[LEAVES]=[6,6,6]; blockTiles[SAND]=[7,7,7];
 blockTiles[PLANK]=[8,8,8]; blockTiles[BENCH]=[9,8,10];
 blockTiles[COAL_ORE]=[11,11,11]; blockTiles[FURNACE]=[12,12,13]; blockTiles[WOOL]=[14,14,14];
+blockTiles[BEDROCK]=[15,15,15];
 
 function drawItemIcon(ctx2, id){
   ctx2.clearRect(0,0,16,16);
