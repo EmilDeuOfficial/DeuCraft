@@ -171,6 +171,29 @@ function makeInvSlot(idx){
   });
   // PC: Rechtsklick halbiert / legt einzeln ab
   d.addEventListener('contextmenu', function(e){ e.preventDefault(); splitClick(idx); });
+  // Drag-Splitting: Maus gedrückt halten und über Slots ziehen → je 1 Item ablegen
+  d.addEventListener('mouseenter', function(e){
+    if(!(e.buttons & 1)) return;       // nur bei gedrückter linker Maustaste
+    if(!cursorItem) return;
+    var ms = maxStack(cursorItem.id);
+    var s = slots[idx];
+    if(idx === CRAFT_RESULT || idx === TABLE_RESULT || idx === FUR_OUT) return;
+    if(idx >= ARMOR_0 && idx < ARMOR_END) return;
+    if(!s){
+      slots[idx] = { id:cursorItem.id, count:1 };
+    } else if(s.id === cursorItem.id && s.count < ms){
+      s.count++;
+    } else {
+      return;
+    }
+    cursorItem.count--;
+    if(cursorItem.count <= 0) cursorItem = null;
+    if(isCraftInput(idx)) computeCraft();
+    if(idx === FUR_IN || idx === FUR_FUEL){ syncOpenFurnaceFromSlots(); notifyFurnaceChange(); }
+    if(idx >= CHEST_0 && idx < CHEST_0+27 && openChestKey) syncMirrorToChest();
+    invDirty = true;
+    renderInvUI(); renderCursor();
+  });
   // Handy: langes Drücken halbiert
   d.addEventListener('touchstart', function(){
     if(lpTimer) clearTimeout(lpTimer);

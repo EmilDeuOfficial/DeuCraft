@@ -77,6 +77,14 @@ document.addEventListener('mouseup', function(e){
   if(e.button === 0) mouseLeft = false;
 });
 document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+/* Mausrad: Hotbar-Slot wechseln */
+document.addEventListener('wheel', function(e){
+  if(!inGame || paused || invOpen) return;
+  e.preventDefault();
+  if(e.deltaY > 0) selected = (selected + 1) % HOTBAR_N;
+  else             selected = (selected - 1 + HOTBAR_N) % HOTBAR_N;
+  invDirty = true;
+}, { passive: false });
 
 /* ---- Touch ---- */
 var joy = document.getElementById('joy'), joyKnob = document.getElementById('joyKnob');
