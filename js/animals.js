@@ -24,7 +24,7 @@ function makeMobModel(type){
     g.add(boxPart(0.18,0.5,0.18, lc,  0.24,0.25,-0.34));
     g.add(boxPart(0.18,0.5,0.18, lc, -0.24,0.25, 0.36));
     g.add(boxPart(0.18,0.5,0.18, lc,  0.24,0.25, 0.36));
-  } else {
+  } else if(type === 'sheep'){
     g.add(boxPart(0.66, 0.66, 0.92, 0xeeeeee, 0, 0.82, 0));     // Wollkörper
     g.add(boxPart(0.40, 0.40, 0.40, 0x33271c, 0, 0.86, -0.58)); // Kopf dunkel
     var ls = 0x33271c;
@@ -32,6 +32,13 @@ function makeMobModel(type){
     g.add(boxPart(0.16,0.45,0.16, ls,  0.2,0.22,-0.28));
     g.add(boxPart(0.16,0.45,0.16, ls, -0.2,0.22, 0.3));
     g.add(boxPart(0.16,0.45,0.16, ls,  0.2,0.22, 0.3));
+  } else {
+    // Zombie: grüner Humanoid
+    g.add(boxPart(0.55, 0.78, 0.30, 0x1e4a1e, 0, 0.39, 0));           // Beine
+    g.add(boxPart(0.60, 0.95, 0.32, 0x2d6b2d, 0, 0.78+0.475, 0));     // Körper
+    g.add(boxPart(0.52, 0.52, 0.52, 0x4a7a3a, 0, 0.78+0.95+0.26, 0)); // Kopf
+    g.add(boxPart(0.20, 0.70, 0.20, 0x2d6b2d, -0.40, 0.78+0.50, -0.20)); // Arm links
+    g.add(boxPart(0.20, 0.70, 0.20, 0x2d6b2d,  0.40, 0.78+0.50, -0.20)); // Arm rechts
   }
   scene.add(g);
   return g;
@@ -54,18 +61,18 @@ var mobNextId = 1;
 function spawnMob(type, x, y, z, hp){
   var m = { id:mobNextId++, type:type, x:x, y:y, z:z, vy:0, yaw:Math.random()*Math.PI*2,
             wt:1+Math.random()*2, idle:false,
-            hp:(typeof hp === 'number' ? hp : (type==='cow'?10:8)),
-            g:makeMobModel(type), hop:0, fleeT:0, fleeYaw:0 };
+            hp:(typeof hp === 'number' ? hp : (type==='cow'?10:type==='sheep'?8:20)),
+            g:makeMobModel(type), hop:0, fleeT:0, fleeYaw:0, attackT:0 };
   m.g.position.set(x,y,z);
   mobs.push(m);
 }
 function mobById(id){ for(var i=0;i<mobs.length;i++) if(mobs[i].id === id) return mobs[i]; return null; }
 function allPlayerPositions(){
-  var pos = [{ x:player.pos.x, z:player.pos.z }];
+  var pos = [{ id:-1, x:player.pos.x, y:player.pos.y, z:player.pos.z }];
   if(net.mode === 'host'){
     for(var pid in net.conns){
       var pp = net.conns[pid];
-      if(pp.authed) pos.push({ x:pp.x, z:pp.z });
+      if(pp.authed) pos.push({ id:pid|0, x:pp.x, y:pp.y||0, z:pp.z });
     }
   }
   return pos;
@@ -91,7 +98,8 @@ function trySpawnMobs(){
     if(!chunks[ckey(cx,cz)]) continue;
     var h = terrainHeight(Math.floor(x), Math.floor(z));
     if(getB(Math.floor(x), h, Math.floor(z)) !== GRASS) continue;
-    spawnMob(Math.random() < 0.5 ? 'cow' : 'sheep', Math.floor(x)+0.5, h+1, Math.floor(z)+0.5);
+    var sr = Math.random();
+    spawnMob(sr < 0.2 ? 'zombie' : (sr < 0.6 ? 'cow' : 'sheep'), Math.floor(x)+0.5, h+1, Math.floor(z)+0.5);
     return;
   }
 }
@@ -129,7 +137,7 @@ function syncMobs(list){
   for(var i=0; i<list.length; i++){
     var e = list[i]; seen[e.i] = true;
     var mob = mobById(e.i);
-    var type = e.t === 0 ? 'cow' : 'sheep';
+    var type = e.t === 0 ? 'cow' : e.t === 1 ? 'sheep' : 'zombie';
     if(!mob){
       mob = { id:e.i, type:type, x:e.x, y:e.y, z:e.z, yaw:e.r,
               tx:e.x, ty:e.y, tz:e.z, tyaw:e.r, g:makeMobModel(type) };
@@ -151,30 +159,62 @@ function updateMobs(dt){
     var m = mobs[i];
     if(!mobNearAnyPlayer(m)){ removeMob(i); continue; }   // zu weit von allen Spielern -> entfernen
 
-    // Bewegung: Flucht hat Vorrang vor normalem Wandern
-    if(m.fleeT > 0){
-      m.fleeT -= dt;
-      m.idle = false;
-      m.yaw = m.fleeYaw;
-      var fsp = 2.8;
-      var fnx = m.x - Math.sin(m.yaw) * fsp * dt;
-      var fnz = m.z - Math.cos(m.yaw) * fsp * dt;
-      if(!mobBlocked(fnx, m.y, fnz)){ m.x = fnx; m.z = fnz; }
-      else { m.fleeYaw = Math.random()*Math.PI*2; m.yaw = m.fleeYaw; }
-    } else {
-      // normales Wandern
-      m.wt -= dt;
-      if(m.wt <= 0){
-        m.wt = 1.5 + Math.random()*3;
-        m.idle = Math.random() < 0.35;
-        if(!m.idle) m.yaw = Math.random()*Math.PI*2;
+    // Bewegung: Zombie verfolgt Spieler, Kuh/Schaf wandern/fliehen
+    if(m.type === 'zombie'){
+      var zpl = allPlayerPositions();
+      var znear = null, znearD2 = Infinity;
+      for(var zpi = 0; zpi < zpl.length; zpi++){
+        var zpp = zpl[zpi];
+        var zdx = zpp.x - m.x, zdy = zpp.y - m.y, zdz = zpp.z - m.z;
+        var zd2 = zdx*zdx + zdy*zdy + zdz*zdz;
+        if(zd2 < znearD2){ znearD2 = zd2; znear = zpp; }
       }
-      if(!m.idle){
-        var sp = 1.3;
-        var nx = m.x - Math.sin(m.yaw) * sp * dt;
-        var nz = m.z - Math.cos(m.yaw) * sp * dt;
-        if(!mobBlocked(nx, m.y, nz)){ m.x = nx; m.z = nz; }
-        else { m.yaw = Math.random()*Math.PI*2; }
+      if(znear){
+        m.yaw = Math.atan2(m.x - znear.x, m.z - znear.z);
+        if(znearD2 > 1.44){
+          var zsp = 2.2;
+          var znx = m.x - Math.sin(m.yaw) * zsp * dt;
+          var znz = m.z - Math.cos(m.yaw) * zsp * dt;
+          if(!mobBlocked(znx, m.y, znz)){ m.x = znx; m.z = znz; }
+          else { m.yaw += Math.PI * 0.5; }
+        }
+        if(m.attackT > 0) m.attackT -= dt;
+        if(znearD2 < 2.25 && m.attackT <= 0){
+          m.attackT = 1.2;
+          if(znear.id === -1){
+            damage(3);
+          } else if(net.mode === 'host'){
+            var ztc = net.conns[znear.id];
+            if(ztc && ztc.authed) jsend(ztc.conn, { t:'hurt', d:3 });
+          }
+        }
+      }
+    } else {
+      // Flucht hat Vorrang vor normalem Wandern
+      if(m.fleeT > 0){
+        m.fleeT -= dt;
+        m.idle = false;
+        m.yaw = m.fleeYaw;
+        var fsp = 2.8;
+        var fnx = m.x - Math.sin(m.yaw) * fsp * dt;
+        var fnz = m.z - Math.cos(m.yaw) * fsp * dt;
+        if(!mobBlocked(fnx, m.y, fnz)){ m.x = fnx; m.z = fnz; }
+        else { m.fleeYaw = Math.random()*Math.PI*2; m.yaw = m.fleeYaw; }
+      } else {
+        // normales Wandern
+        m.wt -= dt;
+        if(m.wt <= 0){
+          m.wt = 1.5 + Math.random()*3;
+          m.idle = Math.random() < 0.35;
+          if(!m.idle) m.yaw = Math.random()*Math.PI*2;
+        }
+        if(!m.idle){
+          var sp = 1.3;
+          var nx = m.x - Math.sin(m.yaw) * sp * dt;
+          var nz = m.z - Math.cos(m.yaw) * sp * dt;
+          if(!mobBlocked(nx, m.y, nz)){ m.x = nx; m.z = nz; }
+          else { m.yaw = Math.random()*Math.PI*2; }
+        }
       }
     }
     // Schwerkraft + Boden
@@ -214,6 +254,19 @@ function nearestMobHit(reach){
   }
   return best;
 }
+function nearestAvatarHit(reach){
+  var ox = player.pos.x, oy = player.pos.y + player.eye, oz = player.pos.z;
+  var dx = -Math.sin(player.yaw)*Math.cos(player.pitch);
+  var dy = Math.sin(player.pitch);
+  var dz = -Math.cos(player.yaw)*Math.cos(player.pitch);
+  var best = null, bestT = reach;
+  for(var rid in remotePlayers){
+    var rp = remotePlayers[rid];
+    var t = raySphere(ox,oy,oz, dx,dy,dz, rp.x, rp.y + 1.0, rp.z, 0.6);
+    if(t != null && t < bestT){ bestT = t; best = { id:rid|0, t:t }; }
+  }
+  return best;
+}
 function meleeDamage(){
   var ti = toolInfo(slots[selected] ? slots[selected].id : 0);
   if(ti && ti.type === 'sword') return ti.tier === 2 ? 5 : 4;
@@ -232,11 +285,24 @@ function mobDrops(type){
   return d;
 }
 function killMob(m){
-  if(gameMode === 'survival') mobDrops(m.type).forEach(function(d){ addItem(d.id, d.count); });
-  showToast(m.type === 'cow' ? 'Kuh erlegt' : 'Schaf erlegt');
+  if(gameMode === 'survival' && m.type !== 'zombie') mobDrops(m.type).forEach(function(d){ addItem(d.id, d.count); });
+  var toasts = { cow:'Kuh erlegt', sheep:'Schaf erlegt', zombie:'Zombie besiegt!' };
+  showToast(toasts[m.type] || m.type + ' erlegt');
 }
 function meleeAttack(){
   var hit = nearestMobHit(3.4);
+  var avatarHit = nearestAvatarHit(3.4);
+  // PvP: Avatar-Treffer hat Vorrang wenn er näher ist
+  if(avatarHit && (!hit || avatarHit.t < hit.t)){
+    var pvpD = meleeDamage();
+    if(net.mode === 'client'){
+      jsend(net.hostConn, { t:'pvphit', id:avatarHit.id, d:pvpD });
+    } else if(net.mode === 'host'){
+      var pvpT = net.conns[avatarHit.id];
+      if(pvpT && pvpT.authed) jsend(pvpT.conn, { t:'hurt', d:pvpD });
+    }
+    return true;
+  }
   if(!hit) return false;
   var m = hit.mob;
   var fleeYaw = Math.atan2(hit.dx, hit.dz) + Math.PI;

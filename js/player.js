@@ -36,6 +36,8 @@ function damage(d){
   if(gameMode === 'creative') return;
   health = Math.max(0, health - d);
   statsDirty = true;
+  var hf = document.getElementById('hurtFlash');
+  if(hf){ hf.classList.remove('on'); void hf.offsetWidth; hf.classList.add('on'); }
   if(health <= 0) die();
 }
 function die(){

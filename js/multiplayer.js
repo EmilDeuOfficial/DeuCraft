@@ -178,6 +178,14 @@ function hostHandle(id, m){
   } else if(m.t === 'chest_set'){
     chests[m.k] = m.slots || [];
     hostBroadcast({ t:'chest', k:m.k, slots:chests[m.k] }, id);
+  } else if(m.t === 'pvphit'){
+    var pvpD = Math.min(m.d || 2, 10);
+    if((m.id|0) === 0){
+      damage(pvpD);
+    } else {
+      var pvpT = net.conns[m.id];
+      if(pvpT && pvpT.authed) jsend(pvpT.conn, { t:'hurt', d:pvpD });
+    }
   }
 }
 function sendEditsTo(conn){
@@ -288,6 +296,8 @@ function clientHandle(m){
     if(openChestKey === m.k){ syncChestToMirror(); invDirty = true; renderInvUI(); }
   } else if(m.t === 'chest_all'){
     for(var ck in m.data){ chests[ck] = m.data[ck] || []; }
+  } else if(m.t === 'hurt'){
+    damage(m.d || 2);
   }
 }
 function onClientLost(reason){
@@ -330,7 +340,7 @@ function netTick(dt){
     hostBroadcast({ t:'players', list:list });
     // Tiere an die Clients schicken
     hostBroadcast({ t:'mobs', list: mobs.map(function(m){
-      return { i:m.id, t:(m.type==='cow'?0:1),
+      return { i:m.id, t:(m.type==='cow'?0:m.type==='sheep'?1:2),
                x:Math.round(m.x*100)/100, y:Math.round(m.y*100)/100, z:Math.round(m.z*100)/100,
                r:Math.round(m.yaw*100)/100 };
     }) });
