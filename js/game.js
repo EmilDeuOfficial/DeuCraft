@@ -41,6 +41,10 @@ function startWorld(w){
     player.vel.set(0,0,0);
     fallPeak = 0;
     selected = 0;
+    // gespeicherte Tiere wiederherstellen (nur Host/Einzelspieler)
+    if(w.mobs && net.mode !== 'client'){
+      w.mobs.forEach(function(m){ spawnMob(m.type, m.x, m.y, m.z, m.hp); });
+    }
     // gespeicherte Öfen (jeder mit eigenem Inhalt) wiederherstellen
     if(w.furnaces){
       for(var fk in w.furnaces){
@@ -66,6 +70,7 @@ function startWorld(w){
 }
 
 /* ============ Init ============ */
+document.getElementById('btnRespawn').addEventListener('click', respawn);
 buildInvUI();
 store.get('bc_settings').then(function(raw){
   if(raw){ try{ var s = JSON.parse(raw); if(s) settings = Object.assign(settings, s); }catch(e){} }

@@ -243,3 +243,28 @@
     pointer-events:none; display:none;
   }
   body.playing #netBadge.on { display:block; }
+
+  /* ===== Todesbildschirm ===== */
+  #deathScreen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(80,0,0,0.88);
+    z-index: 90;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: monospace;
+    color: #ff4444;
+    text-align: center;
+    animation: deathFade 0.6s ease-in;
+  }
+  #deathScreen.active { display: flex; }
+  #deathScreen h2 {
+    font-size: 2.6em;
+    margin: 0 0 0.3em;
+    text-shadow: 0 0 24px #ff0000, 0 2px 0 #000;
+    letter-spacing: 2px;
+  }
+  #deathMsg { color: #ffaaaa; font-size: 1.1em; margin-bottom: 1.6em; }
+  @keyframes deathFade { from { opacity:0; } to { opacity:1; } }

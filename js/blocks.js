@@ -19,16 +19,18 @@ function doBreakDrop(x,y,z,id){
     }
     if(openFurnaceKey === fk){ slots[FUR_IN] = null; slots[FUR_FUEL] = null; slots[FUR_OUT] = null; openFurnaceKey = null; }
     delete furnaces[fk];
-    if(gameMode === 'survival') addItem(FURNACE, 1);
+    if(gameMode === 'survival'){
+      var pickHeld = toolInfo(slots[selected] ? slots[selected].id : 0);
+      if(pickHeld && pickHeld.type === 'pick') addItem(FURNACE, 1);
+    }
     return;
   }
   if(gameMode !== 'survival') return;
   var heldTool = toolInfo(slots[selected] ? slots[selected].id : 0);
-  if(id === COAL_ORE){
-    // Kohle gibt es nur mit einer Spitzhacke
-    if(heldTool && heldTool.type === 'pick'){ addItem(COAL, 1); }
-    else showToast('Dafür brauchst du eine Spitzhacke');
-    return;
+  // Alle Blöcke mit blockCategory 'pick' brauchen eine Spitzhacke zum Droppen
+  if(blockCategory(id) === 'pick'){
+    if(!(heldTool && heldTool.type === 'pick')) return;   // kein Drop, kein Toast (wie Minecraft)
+    if(id === COAL_ORE){ addItem(COAL, 1); return; }
   }
   addItem(blockDrop(id), 1);
   if(id === LEAVES && hash2(x*13+y*7, z*17+y*3) < 0.12){
