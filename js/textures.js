@@ -234,12 +234,14 @@ buildTool(WSWORD,'sword','#b08c50','#8d6c36');  buildTool(SSWORD,'sword','#9a9a9
 
 /* einfache, kompakte Item-Icons (Klecks-Form mit Farben) */
 var itemCv = {};
-function buildBlob(id, cells, palette){
+function buildBlob(id, cells, palette, ox, oy){
+  var xo = ox !== undefined ? ox : 2;
+  var yo = oy !== undefined ? oy : 2;
   var cv = document.createElement('canvas'); cv.width=16; cv.height=16;
   var a = cv.getContext('2d');
   for(var y=0;y<cells.length;y++) for(var x=0;x<cells[y].length;x++){
     var ch = cells[y][x];
-    if(ch !== ' ' && palette[ch]){ a.fillStyle = palette[ch]; a.fillRect(x+2, y+2, 1, 1); }
+    if(ch !== ' ' && palette[ch]){ a.fillStyle = palette[ch]; a.fillRect(x+xo, y+yo, 1, 1); }
   }
   itemCv[id] = cv;
 }
@@ -247,26 +249,91 @@ function buildBlob(id, cells, palette){
 buildBlob(COAL, [
   '        ','   KK   ',' KKKKK  ','KKKKLKK ','KKLKKKK ','KKKKKK  ',' KKKK   ','        '
 ], {K:'#2a2a2a', L:'#555'});
-// Rohes Rindfleisch (rosa Stück)
+// Rohes Rindfleisch – großes Steak-Icon (14×14 bei Offset 1,1)
 buildBlob(RAW_BEEF, [
-  '        ',' RRRR   ','RRPRRR  ','RPRRRRR ','RRRRPR  ','RRRRR   ',' RRR    ','        '
-], {R:'#d56a6a', P:'#e8a0a0'});
+  '              ',
+  ' RRRRRR       ',
+  'RRRRFFFFRRR   ',
+  'RRFFFFFFFR    ',
+  'RPFFFFFFRRRR  ',
+  'RRFFFFFRRRRR  ',
+  'RRRRRRRFRRRRR ',
+  ' RRPRRRRRRR   ',
+  '  RRRRRRRR    ',
+  '  RRPRRRRR    ',
+  '   RRRRRR     ',
+  '    RRRRR     ',
+  '     RRR      ',
+  '              ',
+], {R:'#d56a6a', P:'#e8a0a0', F:'#f0d8c0'}, 1, 1);
 // Steak (braun gebraten)
 buildBlob(COOKED_BEEF, [
-  '        ',' BBBB   ','BBSBBB  ','BSBBBBB ','BBBBSB  ','BBBBB   ',' BBB    ','        '
-], {B:'#7a4a26', S:'#9c6a3c'});
-// Rohes Hammelfleisch (helleres rosa)
+  '              ',
+  ' BBBBBB       ',
+  'BBBBCCCCBBB   ',
+  'BBCCCCCCCB    ',
+  'BSCCCCCBBBB   ',
+  'BBCCCBBBBBB   ',
+  'BBBBBBBCBBBBB ',
+  ' BBBSBBBBBBB  ',
+  '  BBBBBBBBB   ',
+  '  BBSBBBBBB   ',
+  '   BBBBBBB    ',
+  '    BBBBB     ',
+  '     BBB      ',
+  '              ',
+], {B:'#7a4a26', S:'#9c6a3c', C:'#c09060'}, 1, 1);
+// Rohes Hammelfleisch (Lammkotelette-Form)
 buildBlob(RAW_MUTTON, [
-  '        ','  RRR   ',' RRPRR  ','RRRRRRR ',' RRPRR  ',' RRRR   ','        ','        '
-], {R:'#e07f8a', P:'#f0aab0'});
+  '              ',
+  '  RRRRRRR     ',
+  ' RRRRRRRRRR   ',
+  'RRRRWWWRRRR   ',
+  'RRRWWWWWRRR   ',
+  'RRRWWWWWRR    ',
+  'RRPRRWWRRR    ',
+  'RRRRRRRR      ',
+  ' RRPRRRRR     ',
+  '  RRRRRRR     ',
+  '   RRRRR      ',
+  '   RRRR       ',
+  '    RR        ',
+  '              ',
+], {R:'#e07f8a', P:'#f0aab0', W:'#f0d8d0'}, 1, 1);
 // Gebratenes Hammelfleisch
 buildBlob(COOKED_MUTTON, [
-  '        ','  BBB   ',' BBSBB  ','BBBBBBB ',' BBSBB  ',' BBBB   ','        ','        '
-], {B:'#86532c', S:'#a8743f'});
-// Leder (braunes Stück)
+  '              ',
+  '  BBBBBBB     ',
+  ' BBBBBBBBB    ',
+  'BBBBCCCBBBB   ',
+  'BBBCCCCCBBB   ',
+  'BBBCCCCCBB    ',
+  'BBSBBCCBBB    ',
+  'BBBBBBB       ',
+  ' BBSBBBB      ',
+  '  BBBBBB      ',
+  '   BBBBB      ',
+  '   BBBB       ',
+  '    BB        ',
+  '              ',
+], {B:'#86532c', S:'#a8743f', C:'#b87040'}, 1, 1);
+// Leder (Fell-Stück)
 buildBlob(LEATHER, [
-  '        ',' LLLLL  ','LLLLLLL ','LLDLLLL ','LLLLDL  ','LLLLLL  ',' LLLLL  ','        '
-], {L:'#9c6b3f', D:'#7d5430'});
+  '              ',
+  'LLLLLLLLLL    ',
+  'LLHHLLLLLLLL  ',
+  'LLLHHLLLLLLL  ',
+  'LLLLLHLLLLLL  ',
+  'LLLLLLLLLLL   ',
+  'LLLLLLLLLL    ',
+  ' LDLLLLLLLL   ',
+  '  LLLLLLLL    ',
+  '   LLLLLLL    ',
+  '    LLLLL     ',
+  '     LLLL     ',
+  '      LL      ',
+  '              ',
+], {L:'#9c6b3f', D:'#7d5430', H:'#b88050'}, 1, 1);
 
 var atlasTex = new THREE.CanvasTexture(atlasCv);
 atlasTex.magFilter = THREE.NearestFilter;
