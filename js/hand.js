@@ -98,6 +98,7 @@ function getMesh(id){
 }
 
 var bobT = 0;
+var swingPhase = 0;
 
 window.renderHand = function(dt){
   hCam.fov = curFov;
@@ -106,7 +107,7 @@ window.renderHand = function(dt){
 
   var show = inGame && !invOpen;
   armGroup.visible = show;
-  if(!show){ if(curMesh) curMesh.visible = false; return; }
+  if(!show){ if(curMesh) curMesh.visible = false; swingPhase = 0; return; }
 
   /* Gehaltenes Item ermitteln */
   var sl = slots[selected];
@@ -126,19 +127,34 @@ window.renderHand = function(dt){
   var bx = moving ? Math.sin(bobT) * 0.022 : 0;
   var by = moving ? Math.abs(Math.sin(bobT)) * -0.020 : 0;
 
-  armGroup.position.set(0.60 + bx, -0.62 + by, -0.92);
+  /* Abbau-Schwung: läuft solange ein Block abgebaut oder Mob angegriffen wird */
+  var isMining = (mineTarget !== null) || touchMining
+              || (mouseLeft && locked && !nearestMobHit && gameMode === 'creative');
+  if(isMining){
+    swingPhase = (swingPhase + dt * 2.8) % 1;
+  } else {
+    swingPhase = 0;
+  }
+  /* Schnell nach vorne, langsam zurück: asymmetrische Kurve per halbem Sinus */
+  var sw = Math.sin(swingPhase * Math.PI * 2);
+  var sDy = sw * -0.13;          // Arm taucht beim Schlag nach unten
+  var sDz = Math.max(0, sw) * 0.11;  // kurzer Ruck nach vorne
+  var sRx = sw * 0.60;           // Kippwinkel nach vorne
+
+  armGroup.position.set(0.60 + bx, -0.62 + by + sDy, -0.92 + sDz);
+  armGroup.rotation.set(0.32 + sRx, -0.10, 0.42);
 
   if(curMesh){
     curMesh.visible = true;
     var isBlock = !!blockTiles[curId];
     if(isBlock){
       curMesh.scale.setScalar(0.42);
-      curMesh.position.set(0.48 + bx, -0.36 + by, -1.00);
-      curMesh.rotation.set(0.46, -0.72, 0);
+      curMesh.position.set(0.48 + bx, -0.36 + by + sDy, -1.00 + sDz);
+      curMesh.rotation.set(0.46 + sRx, -0.72, 0);
     } else {
       curMesh.scale.setScalar(0.62);
-      curMesh.position.set(0.46 + bx, -0.34 + by, -0.86);
-      curMesh.rotation.set(0.05, -0.30, 0);
+      curMesh.position.set(0.46 + bx, -0.34 + by + sDy, -0.86 + sDz);
+      curMesh.rotation.set(0.05 + sRx, -0.30, 0);
     }
   }
 
