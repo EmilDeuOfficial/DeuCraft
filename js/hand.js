@@ -1,99 +1,94 @@
 /* ============ First-Person Hand/Item ============ */
 (function(){
 
-var handScene = new THREE.Scene();
-var handCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 10);
+/* Alle Objekte werden beim ersten renderHand()-Aufruf erstellt,
+   damit camera/scene/drawItemIcon definitiv initialisiert sind. */
+var handReady = false;
+var armMesh, knuckleMesh, itemMesh;
+var iconCtx, iconTex;
+var lastId = -1;
+var bobT = 0;
 
-/* --- Arm --- */
-var armMat = new THREE.MeshBasicMaterial({ color: 0xc8a070 });
-var armMesh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.76, 0.26), armMat);
-handScene.add(armMesh);
+function init(){
+  if(handReady) return;
+  handReady = true;
 
-/* --- Finger / Handknöchel (leicht dunkler) --- */
-var handMat = new THREE.MeshBasicMaterial({ color: 0xb89060 });
-var handKnuckle = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.16, 0.28), handMat);
-handScene.add(handKnuckle);
+  /* Arm */
+  var armMat = new THREE.MeshBasicMaterial({ color: 0xc8a070, depthTest: false });
+  armMesh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.78, 0.26), armMat);
+  armMesh.renderOrder = 999;
 
-/* --- Item-Plane mit Icon-Textur --- */
-var handIconCv = document.createElement('canvas');
-handIconCv.width = 16; handIconCv.height = 16;
-var handIconCtx = handIconCv.getContext('2d');
-var handIconTex = new THREE.CanvasTexture(handIconCv);
-handIconTex.magFilter = THREE.NearestFilter;
-handIconTex.minFilter = THREE.NearestFilter;
+  /* Handknöchel (etwas dunkler) */
+  var knuckleMat = new THREE.MeshBasicMaterial({ color: 0xb28858, depthTest: false });
+  knuckleMesh = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.17, 0.29), knuckleMat);
+  knuckleMesh.renderOrder = 999;
 
-var handItemMat = new THREE.MeshBasicMaterial({
-  map: handIconTex, transparent: true, alphaTest: 0.05, side: THREE.DoubleSide
-});
-var handItemMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.50, 0.50), handItemMat);
-handScene.add(handItemMesh);
+  /* Item-Plane mit Pixel-Art Icon-Textur */
+  var iconCv = document.createElement('canvas');
+  iconCv.width = 16; iconCv.height = 16;
+  iconCtx = iconCv.getContext('2d');
+  iconTex = new THREE.CanvasTexture(iconCv);
+  iconTex.magFilter = THREE.NearestFilter;
+  iconTex.minFilter = THREE.NearestFilter;
 
-var handLastId = -1;
-var handBobT = 0;
+  var itemMat = new THREE.MeshBasicMaterial({
+    map: iconTex, transparent: true, alphaTest: 0.05,
+    side: THREE.DoubleSide, depthTest: false
+  });
+  itemMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.52), itemMat);
+  itemMesh.renderOrder = 1000;
 
-function setHandItem(id){
-  if(id === handLastId) return;
-  handLastId = id;
-  handIconCtx.clearRect(0, 0, 16, 16);
-  if(id && id !== AIR) drawItemIcon(handIconCtx, id);
-  handIconTex.needsUpdate = true;
+  /* Als Kinder der Kamera anhängen → folgen automatisch der Blickrichtung */
+  camera.add(armMesh);
+  camera.add(knuckleMesh);
+  camera.add(itemMesh);
+  scene.add(camera);   /* Kamera muss in der Szene sein damit ihre Kinder gerendert werden */
+}
+
+function updateIcon(id){
+  if(id === lastId) return;
+  lastId = id;
+  iconCtx.clearRect(0, 0, 16, 16);
+  if(id && id !== AIR) drawItemIcon(iconCtx, id);
+  iconTex.needsUpdate = true;
 }
 
 window.renderHand = function(dt){
-  /* Seitenverhältnis und FOV mit Hauptkamera synchronisieren */
-  handCamera.fov = curFov;
-  handCamera.aspect = window.innerWidth / window.innerHeight;
-  handCamera.updateProjectionMatrix();
+  init();
 
   var show = inGame && !invOpen;
-  armMesh.visible = show;
-  handKnuckle.visible = show;
-  handItemMesh.visible = false;
+  armMesh.visible   = show;
+  knuckleMesh.visible = show;
+  itemMesh.visible  = false;
 
   if(!show) return;
 
+  /* Gehaltenes Item ermitteln */
   var sl = slots[selected];
   var id = sl ? sl.id : 0;
-  var hasItem = (id && id !== AIR);
-
-  if(hasItem){
-    setHandItem(id);
-    handItemMesh.visible = true;
+  if(id && id !== AIR){
+    updateIcon(id);
+    itemMesh.visible = true;
   } else {
-    handLastId = -1;
+    lastId = -1;
   }
 
-  /* Lauf-Bob */
-  var speed2d = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
-  var moving = player.onGround && speed2d > 0.6;
-  if(moving) handBobT += dt * 9.5;
-  var bobX = moving ? Math.sin(handBobT) * 0.026 : 0;
-  var bobY = moving ? Math.abs(Math.sin(handBobT)) * -0.022 : 0;
+  /* Lauf-Bob: sanfte Auf-Ab-Bewegung beim Gehen */
+  var spd = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
+  var moving = player.onGround && spd > 0.6;
+  if(moving) bobT += dt * 9.5;
+  var bx = moving ? Math.sin(bobT) * 0.026 : 0;
+  var by = moving ? Math.abs(Math.sin(bobT)) * -0.022 : 0;
 
-  /* Arm: untere rechte Ecke */
-  armMesh.position.set(0.38 + bobX, -0.48 + bobY, -0.74);
-  armMesh.rotation.set(0.22, -0.20, -0.12);
+  /* Positionen in Kamera-Lokalraum (rechts, unten, vor der Kamera) */
+  armMesh.position.set(0.38 + bx,  -0.50 + by, -0.76);
+  armMesh.rotation.set(0.20, -0.18, -0.10);
 
-  /* Handknöchel vorne am Arm */
-  handKnuckle.position.set(0.38 + bobX, -0.17 + bobY, -0.72);
-  handKnuckle.rotation.set(0.22, -0.20, -0.12);
+  knuckleMesh.position.set(0.38 + bx, -0.18 + by, -0.74);
+  knuckleMesh.rotation.set(0.20, -0.18, -0.10);
 
-  /* Item über der Hand, natürlich schräggestellt */
-  handItemMesh.position.set(0.24 + bobX, -0.10 + bobY, -0.73);
-  handItemMesh.rotation.set(-0.22, -0.46, 0.40);
-
-  /* Hand-Szene über Welt rendern: Tiefe löschen, Farbe behalten */
-  renderer.autoClearColor = false;
-  renderer.autoClearDepth = true;
-  renderer.autoClearStencil = false;
-  renderer.render(handScene, handCamera);
-  renderer.autoClearColor = true;
-  renderer.autoClearDepth = true;
+  itemMesh.position.set(0.25 + bx, -0.10 + by, -0.75);
+  itemMesh.rotation.set(-0.22, -0.46, 0.40);
 };
-
-window.addEventListener('resize', function(){
-  handCamera.aspect = window.innerWidth / window.innerHeight;
-  handCamera.updateProjectionMatrix();
-});
 
 })();

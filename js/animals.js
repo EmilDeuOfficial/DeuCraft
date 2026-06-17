@@ -504,8 +504,8 @@ function loop(){
   if(inGame && !paused) updateDayNight(dt);
   if(invDirty){ invDirty = false; renderHotbar(); if(invOpen) renderInvUI(); }
   if(statsDirty){ statsDirty = false; renderStats(); }
-  renderer.render(scene, camera);
   if(inGame) renderHand(dt);
+  renderer.render(scene, camera);
 
   if(inGame){
     fpsC++;
