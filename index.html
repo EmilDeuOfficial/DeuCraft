@@ -16,8 +16,8 @@
 <div id="info" class="hud"></div>
 <div id="netBadge"></div>
 <div id="hotbar" class="hud hud-flex"></div>
-<button id="btnPause" class="hud">| |</button>
-<button id="btnInv" class="hud">⊞</button>
+<button id="btnPause" class="hud"><img src="svg/menu.svg" class="btn-icon" alt="Pause"></button>
+<button id="btnInv" class="hud"><img src="svg/backpack.svg" class="btn-icon" alt="Inventar"></button>
 
 <div id="joy" class="touch-only"><div id="joyKnob"></div></div>
 <div id="btnJump" class="touch-only">▲</div>
@@ -42,22 +42,22 @@
         <div class="invTitle" id="craftTitle">Handwerk</div>
         <div id="craft2x2wrap" style="display:flex; align-items:center; gap:8px;">
           <div id="craftGrid" style="display:grid; grid-template-columns:auto auto; gap:2px;"></div>
-          <div class="craftArrow">➜</div>
+          <div class="craftArrow"><img src="svg/arrow-right.svg" class="arrow-icon" alt="➜"></div>
           <div id="craftResult"></div>
         </div>
         <div id="craft3x3wrap" style="display:none; align-items:center; gap:8px;">
           <div id="tableGrid" style="display:grid; grid-template-columns:auto auto auto; gap:2px;"></div>
-          <div class="craftArrow">➜</div>
+          <div class="craftArrow"><img src="svg/arrow-right.svg" class="arrow-icon" alt="➜"></div>
           <div id="tableResult"></div>
         </div>
         <div id="furnaceWrap" style="display:none; align-items:center; gap:12px;">
           <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
             <div id="furInSlot"></div>
-            <div id="furFlame" style="font-size:18px; line-height:1; filter:grayscale(1); opacity:.35;">🔥</div>
+            <div id="furFlame" style="filter:grayscale(1); opacity:.35;"><img src="svg/fire.svg" class="fire-icon" alt="🔥"></div>
             <div id="furFuelSlot"></div>
           </div>
           <div style="display:flex; flex-direction:column; align-items:center; gap:3px;">
-            <div class="craftArrow">➜</div>
+            <div class="craftArrow"><img src="svg/arrow-right.svg" class="arrow-icon" alt="➜"></div>
             <div style="width:46px; height:6px; background:#777; box-shadow:inset 1px 1px 0 #555;"><div id="furProgBar" style="height:100%; width:0%; background:#d8902a;"></div></div>
           </div>
           <div id="furOutSlot"></div>
