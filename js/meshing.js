@@ -26,11 +26,15 @@ function buildMesh(c){
       var nb = getB(x+F.d[0], y+F.d[1], z+F.d[2]);
       if(!(nb === AIR || (nb === LEAVES && b !== LEAVES))) continue;
       var tile = tiles[F.s];
-      var u0 = tile/TILES, u1 = (tile+1)/TILES;
+      // Halber Pixel Einzug verhindert UV-Bleeding zur Nachbarkachel
+      var hp = 0.5 / (TILES * TPX);
+      var vp = 0.5 / TPX;
+      var u0 = tile/TILES + hp, u1 = (tile+1)/TILES - hp;
       for(var k=0; k<4; k++){
         var cn = F.c[k];
         pos.push(x+cn[0], y+cn[1], z+cn[2]);
-        uv.push(u0 + FUV[k][0]*(u1-u0), FUV[k][1]);
+        var vCoord = vp + FUV[k][1] * (1 - 2*vp);
+        uv.push(u0 + FUV[k][0]*(u1-u0), vCoord);
         col.push(F.l, F.l, F.l);
       }
       ind.push(v, v+1, v+2, v, v+2, v+3);
