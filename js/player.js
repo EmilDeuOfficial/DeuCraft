@@ -16,7 +16,8 @@ var hungerDrain = 0, regenTimer = 0, starveTimer = 0;
 function spawnHeight(){
   var sx = Math.floor(player.pos.x), sz = Math.floor(player.pos.z);
   for(var y=SY-1; y>0; y--){
-    if(getB(sx,y,sz) !== AIR){ player.pos.y = y + 1.01; return; }
+    var b = getB(sx,y,sz);
+    if(b !== AIR && !isTorch(b)){ player.pos.y = y + 1.01; return; }
   }
 }
 function collides(p){
@@ -26,7 +27,8 @@ function collides(p){
   for(var x=minX; x<=maxX; x++)
   for(var y=minY; y<=maxY; y++)
   for(var z=minZ; z<=maxZ; z++){
-    if(getB(x,y,z) !== AIR) return true;
+    var cb = getB(x,y,z);
+    if(cb !== AIR && !isTorch(cb)) return true;
   }
   return false;
 }

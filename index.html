@@ -62,6 +62,9 @@
           </div>
           <div id="furOutSlot"></div>
         </div>
+        <div id="chestWrap" style="display:none; flex-direction:column; gap:2px;">
+          <div id="chestGrid" style="display:grid; grid-template-columns:repeat(9,auto); gap:2px;"></div>
+        </div>
         <div class="craftHint" id="craftHint">1 Holz ➜ 4 Bretter · 2 Bretter ➜ 4 Stöcke · 4 Bretter ➜ Werkbank</div>
       </div>
     </div>
@@ -186,10 +189,12 @@
 <script src="js/world.js"></script>
 <script src="js/textures.js"></script>
 <script src="js/renderer.js"></script>
+<script src="js/torch.js"></script>
 <script src="js/meshing.js"></script>
 <script src="js/player.js"></script>
 <script src="js/hud.js"></script>
 <script src="js/inventory-ui.js"></script>
+<script src="js/chest.js"></script>
 <script src="js/input.js"></script>
 <script src="js/raycast.js"></script>
 <script src="js/blocks.js"></script>

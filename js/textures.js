@@ -1,5 +1,5 @@
 /* ============ Textur-Atlas: 16x16 Pixel-Art ============ */
-var TILES = 16, TPX = 16;
+var TILES = 18, TPX = 16;
 var atlasCv = document.createElement('canvas');
 atlasCv.width = TILES*TPX; atlasCv.height = TPX;
 var actx = atlasCv.getContext('2d');
@@ -136,6 +136,39 @@ drawDirt(2);
   ].forEach(function(p){ px(15,p[0],p[1],'#111'); });
 })();
 
+/* Tile 16: Truhe - Oberseite */
+(function(){
+  var bs = ['#b08c50','#a8854a','#b6915a','#a07e44'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(16,x,y, pick(bs, tn(16,x,y,1)));
+  for(var i=0;i<16;i++){ px(16,i,0,'#6e5226'); px(16,i,15,'#6e5226'); px(16,0,i,'#6e5226'); px(16,15,i,'#6e5226'); }
+  for(var i=1;i<15;i++) px(16,i,7,'#6e5226');
+  for(var j=1;j<15;j++) px(16,7,j,'#6e5226');
+  px(16,7,7,'#d4a830'); px(16,8,7,'#d4a830'); px(16,7,8,'#d4a830'); px(16,8,8,'#d4a830');
+})();
+/* Tile 17: Truhe - Seite / Vorderseite */
+(function(){
+  var bs = ['#b08c50','#a8854a','#b6915a','#a07e44'];
+  for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(17,x,y, pick(bs, tn(17,x,y,1)));
+  for(var i=0;i<16;i++){ px(17,i,0,'#6e5226'); px(17,i,15,'#6e5226'); px(17,0,i,'#6e5226'); px(17,15,i,'#6e5226'); }
+  for(var i=1;i<15;i++) px(17,i,5,'#6e5226');
+  for(var lx=6;lx<=9;lx++) for(var ly=2;ly<=4;ly++) px(17,lx,ly,'#d4a830');
+  px(17,7,5,'#c09020'); px(17,8,5,'#c09020');
+})();
+
+/* Fackel-Canvas (für Sprite-Rendering) */
+var torchCv = document.createElement('canvas');
+torchCv.width = 16; torchCv.height = 16;
+(function(){
+  var a = torchCv.getContext('2d');
+  function tp(x,y,c){ a.fillStyle=c; a.fillRect(x,y,1,1); }
+  tp(7,0,'#ffee44'); tp(8,0,'#ffdd22');
+  tp(6,1,'#ffaa00'); tp(7,1,'#ffee44'); tp(8,1,'#ffdd22'); tp(9,1,'#ffaa00');
+  tp(7,2,'#ff8800'); tp(8,2,'#ffaa00');
+  tp(7,3,'#cc5500'); tp(8,3,'#cc5500');
+  tp(6,4,'#7a5a10'); tp(7,4,'#8B6914'); tp(8,4,'#9a7520'); tp(9,4,'#7a5a10');
+  for(var y=5;y<14;y++){ tp(7,y,'#8B6914'); tp(8,y,'#9a7520'); }
+})();
+
 /* Apfel-Icon (eigenes Canvas) */
 var appleCv = document.createElement('canvas');
 appleCv.width = 16; appleCv.height = 16;
@@ -244,7 +277,7 @@ blockTiles[GRASS]=[0,2,1]; blockTiles[DIRT]=[2,2,2]; blockTiles[STONE]=[3,3,3];
 blockTiles[WOOD]=[5,5,4]; blockTiles[LEAVES]=[6,6,6]; blockTiles[SAND]=[7,7,7];
 blockTiles[PLANK]=[8,8,8]; blockTiles[BENCH]=[9,8,10];
 blockTiles[COAL_ORE]=[11,11,11]; blockTiles[FURNACE]=[12,12,13]; blockTiles[WOOL]=[14,14,14];
-blockTiles[BEDROCK]=[15,15,15];
+blockTiles[BEDROCK]=[15,15,15]; blockTiles[CHEST]=[16,16,17];
 
 function drawItemIcon(ctx2, id){
   ctx2.clearRect(0,0,16,16);
@@ -252,6 +285,7 @@ function drawItemIcon(ctx2, id){
   else if(id === STICK) ctx2.drawImage(stickCv, 0, 0);
   else if(toolCv[id]) ctx2.drawImage(toolCv[id], 0, 0);
   else if(itemCv[id]) ctx2.drawImage(itemCv[id], 0, 0);
+  else if(id === TORCH) ctx2.drawImage(torchCv, 0, 0);
   else if(blockTiles[id]) ctx2.drawImage(atlasCv, blockTiles[id][2]*TPX, 0, TPX, TPX, 0, 0, 16, 16);
 }
 

@@ -4,7 +4,7 @@ var cursorItem = null;     // {id,count}
 var cursorEl = document.getElementById('cursorItem');
 var cursorCtx = cursorEl.querySelector('canvas').getContext('2d');
 var tableOpen = false;     // ist gerade das 3x3 Werkbankgitter aktiv?
-var CREATIVE_ITEMS = [GRASS, DIRT, STONE, COAL_ORE, WOOD, LEAVES, SAND, PLANK, BENCH, FURNACE, WOOL,
+var CREATIVE_ITEMS = [GRASS, DIRT, STONE, COAL_ORE, WOOD, LEAVES, SAND, PLANK, BENCH, FURNACE, WOOL, CHEST, TORCH,
   APPLE, STICK, COAL, LEATHER, RAW_BEEF, COOKED_BEEF, RAW_MUTTON, COOKED_MUTTON,
   WPICK, WAXE, WSHOVEL, WSWORD, SPICK, SAXE, SSHOVEL, SSWORD];
 
@@ -16,6 +16,8 @@ var RECIPES = [
   { shapeless:true, ing:[[WOOD,1]], out:{id:PLANK, count:4} },
   { shapeless:true, ing:[[PLANK,2]], out:{id:STICK, count:4} },
   { shaped:[['P','P'],['P','P']], key:{P:PLANK}, out:{id:BENCH, count:1} },
+  { shaped:[['P','P','P'],['P','','P'],['P','P','P']], key:{P:PLANK}, out:{id:CHEST, count:1} },
+  { shaped:[['C'],['S']], key:{C:COAL,S:STICK}, out:{id:TORCH, count:4} },
   // Ofen: 8 Stein im Ring (3x3 mit leerer Mitte)
   { shaped:[['C','C','C'],['C','','C'],['C','C','C']], key:{C:STONE}, out:{id:FURNACE, count:1} },
   // Werkzeuge (3x3): M = Material (Bretter oder Stein), S = Stock
@@ -111,9 +113,11 @@ function buildInvUI(){
   var result = document.getElementById('craftResult');
   var tgrid = document.getElementById('tableGrid');
   var tresult = document.getElementById('tableResult');
+  var cGrid = document.getElementById('chestGrid');
   grid.innerHTML = ''; hot.innerHTML = ''; pal.innerHTML = '';
   armor.innerHTML = ''; craft.innerHTML = ''; result.innerHTML = '';
-  tgrid.innerHTML = ''; tresult.innerHTML = '';
+  tgrid.innerHTML = ''; tresult.innerHTML = ''; cGrid.innerHTML = '';
+  for(var cs=CHEST_0; cs<CHEST_0+27; cs++) cGrid.appendChild(makeInvSlot(cs));
   for(var i=HOTBAR_N; i<SLOTS_N; i++) grid.appendChild(makeInvSlot(i));
   for(var j=0; j<HOTBAR_N; j++) hot.appendChild(makeInvSlot(j));
   for(var c=CRAFT_0; c<CRAFT_RESULT; c++) craft.appendChild(makeInvSlot(c));
@@ -212,6 +216,7 @@ function invSlotClick(idx){
   }
   if(isCraftInput(idx)) computeCraft();
   if(idx === FUR_IN || idx === FUR_FUEL){ syncOpenFurnaceFromSlots(); notifyFurnaceChange(); }
+  if(idx >= CHEST_0 && idx < CHEST_0+27 && openChestKey) syncMirrorToChest();
   invDirty = true;
   renderInvUI(); renderCursor();
 }
@@ -241,6 +246,7 @@ function splitClick(idx){
   }
   if(isCraftInput(idx)) computeCraft();
   if(idx === FUR_IN || idx === FUR_FUEL){ syncOpenFurnaceFromSlots(); notifyFurnaceChange(); }
+  if(idx >= CHEST_0 && idx < CHEST_0+27 && openChestKey) syncMirrorToChest();
   invDirty = true;
   renderInvUI(); renderCursor();
 }
@@ -282,6 +288,9 @@ document.addEventListener('pointerdown', trackPointer, { passive:true });
 document.addEventListener('touchstart', trackPointer, { passive:true });
 document.addEventListener('touchmove', trackPointer, { passive:true });
 var furnaceOpen = false;
+var chestOpen = false;
+var chests = {};              // "x|y|z" -> Array(27) von {id,count}|null
+var openChestKey = null;
 // Jeder Ofen-Block hat seinen eigenen Zustand, abgelegt nach Position
 var furnaces = {};            // "x|y|z" -> { x,y,z, in, fuel, out, burnLeft, burnMax, prog }
 var openFurnaceKey = null;    // welcher Ofen gerade offen ist
@@ -295,23 +304,30 @@ function syncOpenFurnaceFromSlots(){
     f.in = slots[FUR_IN]; f.fuel = slots[FUR_FUEL]; f.out = slots[FUR_OUT];
   }
 }
-function setPanelMode(mode){   // 'craft' | 'table' | 'furnace'
-  // Wenn wir den Ofen verlassen: Inhalt in die Registry zurückschreiben und Spiegel-Slots leeren
+function setPanelMode(mode){   // 'craft' | 'table' | 'furnace' | 'chest'
   if(mode !== 'furnace' && openFurnaceKey){
     syncOpenFurnaceFromSlots();
     slots[FUR_IN] = null; slots[FUR_FUEL] = null; slots[FUR_OUT] = null;
     openFurnaceKey = null;
   }
+  if(mode !== 'chest' && openChestKey){
+    syncMirrorToChest();
+    for(var ci=0; ci<27; ci++) slots[CHEST_0+ci] = null;
+    openChestKey = null; chestOpen = false;
+  }
   tableOpen = (mode === 'table');
   furnaceOpen = (mode === 'furnace');
+  chestOpen = (mode === 'chest');
   document.getElementById('craft2x2wrap').style.display = (mode === 'craft') ? 'flex' : 'none';
   document.getElementById('craft3x3wrap').style.display = (mode === 'table') ? 'flex' : 'none';
   document.getElementById('furnaceWrap').style.display  = (mode === 'furnace') ? 'flex' : 'none';
-  var title = mode === 'table' ? 'Werkbank (3x3)' : (mode === 'furnace' ? 'Ofen' : 'Handwerk (2x2)');
+  document.getElementById('chestWrap').style.display    = (mode === 'chest') ? 'flex' : 'none';
+  var title = mode === 'table' ? 'Werkbank (3x3)' : mode === 'furnace' ? 'Ofen' : mode === 'chest' ? 'Truhe' : 'Handwerk (2x2)';
   document.getElementById('craftTitle').textContent = title;
   document.getElementById('craftHint').textContent =
     mode === 'table' ? 'Werkzeuge: 3 Material oben + 2 Stöcke (Spitzhacke) usw.'
     : mode === 'furnace' ? 'Oben rein, Brennstoff (Kohle/Holz) drunter. Rohes Fleisch wird gebraten.'
+    : mode === 'chest' ? 'Klick: Item bewegen. Rechtsklick / lang drücken: halbieren.'
     : '1 Holz ➜ 4 Bretter · 2 Bretter ➜ 4 Stöcke · 4 Bretter ➜ Werkbank';
 }
 function setCraftMode(table){ setPanelMode(table ? 'table' : 'craft'); }
@@ -423,10 +439,14 @@ function openFurnace(x, y, z){
 function closeInv(){
   invOpen = false;
   if(cursorItem){ addItem(cursorItem.id, cursorItem.count); cursorItem = null; renderCursor(); }
-  // offenen Ofen sichern und Spiegel-Slots leeren
   syncOpenFurnaceFromSlots();
   slots[FUR_IN] = null; slots[FUR_FUEL] = null; slots[FUR_OUT] = null;
   openFurnaceKey = null;
+  if(openChestKey){
+    syncMirrorToChest();
+    for(var ci=0; ci<27; ci++) slots[CHEST_0+ci] = null;
+    openChestKey = null; chestOpen = false;
+  }
   returnCraftItems();
   tableOpen = false; furnaceOpen = false;
   scrInv.classList.remove('open');

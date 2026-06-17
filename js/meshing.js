@@ -18,13 +18,13 @@ function buildMesh(c){
   for(var lz=0; lz<CHUNK; lz++)
   for(var y=0; y<SY; y++){
     var b = c.b[bIdx(lx,y,lz)];
-    if(b === AIR) continue;
+    if(b === AIR || isTorch(b)) continue;
     var x = x0+lx, z = z0+lz;
     var tiles = blockTiles[b];
     for(var f=0; f<6; f++){
       var F = FACES[f];
       var nb = getB(x+F.d[0], y+F.d[1], z+F.d[2]);
-      if(!(nb === AIR || (nb === LEAVES && b !== LEAVES))) continue;
+      if(!(nb === AIR || isTorch(nb) || (nb === LEAVES && b !== LEAVES))) continue;
       var tile = tiles[F.s];
       // Halber Pixel Einzug verhindert UV-Bleeding zur Nachbarkachel
       var hp = 0.5 / (TILES * TPX);
@@ -48,9 +48,11 @@ function buildMesh(c){
   geo.setIndex(ind);
   c.mesh = new THREE.Mesh(geo, blockMat);
   scene.add(c.mesh);
+  buildTorchesForChunk(c);
 }
 function unloadMesh(c){
   if(c.mesh){ scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; }
+  removeTorchObjects(ckey(c.cx, c.cz));
 }
 
 var buildQueue = [], queued = {};

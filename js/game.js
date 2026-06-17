@@ -5,6 +5,7 @@ function startWorld(w){
   unloadAllChunks();
   clearMobs();
   furnaces = {}; openFurnaceKey = null;
+  chests = {}; openChestKey = null; chestOpen = false;
   editsByChunk = {};
   editsDirty = false;
   gameMode = w.mode;
@@ -46,6 +47,7 @@ function startWorld(w){
       w.mobs.forEach(function(m){ spawnMob(m.type, m.x, m.y, m.z, m.hp); });
     }
     // gespeicherte Öfen (jeder mit eigenem Inhalt) wiederherstellen
+    if(w.chests) chests = w.chests;
     if(w.furnaces){
       for(var fk in w.furnaces){
         var s = w.furnaces[fk];
