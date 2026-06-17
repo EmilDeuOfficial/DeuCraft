@@ -47,18 +47,24 @@ function toggleGameMode(){
 }
 
 var locked = false;
+var skipNextMove = false;   // ersten mousemove nach Lock-Erwerb ignorieren
 canvas.addEventListener('click', function(){
   if(inGame && !paused && !invOpen && !isTouch && !locked) canvas.requestPointerLock();
 });
 document.addEventListener('pointerlockchange', function(){
   locked = (document.pointerLockElement === canvas);
+  if(locked) skipNextMove = true;   // Browser sendet oft einen riesigen Versatz-Event direkt nach Lock
   if(!locked && inGame && !paused && !invOpen && !isTouch) openPause();
 });
 document.addEventListener('mousemove', function(e){
   if(!locked || paused || invOpen) return;
+  if(skipNextMove){ skipNextMove = false; return; }   // Spike beim ersten Event überspringen
   var s = 0.0024 * settings.sens/100;
-  player.yaw   -= e.movementX * s;
-  player.pitch -= e.movementY * s;
+  /* Harter Clamp: max 200 Pixel pro Event verhindert Rest-Spikes */
+  var mx = Math.max(-200, Math.min(200, e.movementX));
+  var my = Math.max(-200, Math.min(200, e.movementY));
+  player.yaw   -= mx * s;
+  player.pitch -= my * s;
   player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch));
 });
 
