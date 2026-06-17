@@ -11,6 +11,28 @@ function doBreakDrop(x,y,z,id){
   setB(x,y,z,AIR);
   rebuildAt(x,z);
   netSendBlock(x,y,z,AIR);
+  // Fackel abgebaut
+  if(isTorch(id)){
+    if(gameMode === 'survival') addItem(TORCH, 1);
+    return;
+  }
+  // Truhe abgebaut
+  if(id === CHEST){
+    var ck = chKey(x,y,z);
+    if(openChestKey === ck){
+      syncMirrorToChest();
+      for(var ci=0; ci<27; ci++) slots[CHEST_0+ci] = null;
+      openChestKey = null; chestOpen = false;
+      invOpen = false; scrInv.classList.remove('open');
+    }
+    if(gameMode === 'survival'){
+      var cslots = chests[ck];
+      if(cslots){ cslots.forEach(function(s){ if(s) addItem(s.id, s.count); }); }
+      addItem(CHEST, 1);
+    }
+    delete chests[ck];
+    return;
+  }
   // Ofen abgebaut: Inhalt fällt raus, Eintrag entfernen (in jedem Modus)
   if(id === FURNACE){
     var fk = fKey(x,y,z);
@@ -86,13 +108,14 @@ function toolSpeedFor(blockId, toolId){
   return 1;
 }
 
-function isGuiBlock(id){ return id === BENCH || id === FURNACE; }   // Blöcke mit eigenem Menü
+function isGuiBlock(id){ return id === BENCH || id === FURNACE || id === CHEST; }
 function tryOpenBlockGui(){
   var r = raycast(6);
   if(!r) return false;
   var id = getB(r.hit[0], r.hit[1], r.hit[2]);
   if(id === BENCH){ openTable(); return true; }
   if(id === FURNACE){ openFurnace(r.hit[0], r.hit[1], r.hit[2]); return true; }
+  if(id === CHEST){ openChest(r.hit[0], r.hit[1], r.hit[2]); return true; }
   return false;
 }
 
@@ -116,18 +139,34 @@ function useItem(){
   placeBlock(s.id, gameMode === 'survival');
 }
 function placeBlock(id, consume){
-  if(!blockTiles[id]) return;
+  if(!blockTiles[id] && id !== TORCH) return;
   var r = raycast(6);
   if(!r) return;
   var p = r.prev;
   if(p[1] < 0 || p[1] >= SY) return;
   if(getB(p[0], p[1], p[2]) !== AIR) return;
+  // Fackel: richtigen Wandtyp bestimmen
+  if(id === TORCH){
+    var fnX = p[0]-r.hit[0], fnY = p[1]-r.hit[1], fnZ = p[2]-r.hit[2];
+    if(fnY < 0) return;   // Unterseite eines Blocks → nicht platzierbar
+    var blockId = TORCH;
+    if(fnX > 0) blockId = TORCH_E;
+    else if(fnX < 0) blockId = TORCH_W;
+    else if(fnZ > 0) blockId = TORCH_S;
+    else if(fnZ < 0) blockId = TORCH_N;
+    setB(p[0], p[1], p[2], blockId);
+    rebuildAt(p[0], p[2]);
+    netSendBlock(p[0], p[1], p[2], blockId);
+    if(consume) consumeSelected();
+    return;
+  }
   var pMinX = player.pos.x - player.w, pMaxX = player.pos.x + player.w;
   var pMinY = player.pos.y, pMaxY = player.pos.y + player.h;
   var pMinZ = player.pos.z - player.w, pMaxZ = player.pos.z + player.w;
   if(p[0] < pMaxX && p[0]+1 > pMinX && p[1] < pMaxY && p[1]+1 > pMinY && p[2] < pMaxZ && p[2]+1 > pMinZ) return;
   setB(p[0], p[1], p[2], id);
-  if(id === FURNACE) getFurnace(p[0], p[1], p[2]);   // neuer, leerer Ofen
+  if(id === FURNACE) getFurnace(p[0], p[1], p[2]);
+  if(id === CHEST && !chests[chKey(p[0],p[1],p[2])]) chests[chKey(p[0],p[1],p[2])] = new Array(27).fill(null);
   rebuildAt(p[0], p[2]);
   netSendBlock(p[0], p[1], p[2], id);
   if(consume) consumeSelected();

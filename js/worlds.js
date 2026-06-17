@@ -26,7 +26,8 @@ function savePlayerState(){
     yaw:player.yaw, pitch:player.pitch, mode:gameMode,
     hp:health, food:hunger, inv:saveInv
   };
-  current.furnaces = furnaces;   // jeder Ofen mit eigenem Inhalt
+  current.furnaces = furnaces;
+  current.chests = chests;
   current.mobs = mobs.map(function(m){ return { type:m.type, x:m.x, y:m.y, z:m.z, hp:m.hp }; });
   saveWorlds();
 }
