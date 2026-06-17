@@ -61,10 +61,8 @@ drawDirt(2);
     px(5,x,y,c);
   }
 })();
-(function(){ var g=['#3f7d26','#356d1e','#48892d','#2e6118'];
+(function(){ var g=['#3f7d26','#356d1e','#48892d','#2e6118','#4a8530','#316a1f'];
   for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(6,x,y, pick(g, tn(6,x,y,1)));
-  for(var i=0;i<14;i++) px(6, Math.floor(tn(6,i,5,2)*16), Math.floor(tn(6,i,11,3)*16), '#1d4210');
-  for(var h=0;h<8;h++) px(6, Math.floor(tn(6,h,17,4)*16), Math.floor(tn(6,h,23,5)*16), '#5aa03a');
 })();
 (function(){ var s2=['#decfa0','#d6c794','#e5d8ac','#cfbf88'];
   for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(7,x,y, pick(s2, tn(7,x,y,1)));
