@@ -173,7 +173,10 @@
   .islot canvas { width:28px; height:28px; image-rendering:pixelated; pointer-events:none; }
   .islot .cnt { position:absolute; bottom:0px; right:2px; color:#fff; font-size:11px; font-weight:bold; text-shadow:1px 1px 0 #000; pointer-events:none; }
   .invSep { height:10px; }
-  .craftArrow { color:#555; font-size:22px; }
+  .craftArrow { color:#555; font-size:22px; display:flex; align-items:center; justify-content:center; }
+  .arrow-icon { width:20px; height:20px; display:block; filter:invert(0.65); }
+  .fire-icon  { width:22px; height:22px; display:block; }
+  .btn-icon   { width:22px; height:22px; display:block; filter:invert(1); pointer-events:none; }
   .craftHint { color:#5a5a5a; font-size:10px; margin-top:4px; text-align:left; }
   #playerBox {
     width:54px; height:128px; background:#1c1c1c;
@@ -183,6 +186,7 @@
   @media (max-width:520px){
     #playerBox { display:none; }
     .craftArrow { font-size:16px; }
+    .arrow-icon { width:16px; height:16px; }
   }
   @media (max-width:520px){
     .islot { width:32px; height:32px; }
