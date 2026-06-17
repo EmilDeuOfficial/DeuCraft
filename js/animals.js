@@ -51,23 +51,46 @@ function mobBlocked(x, y, z){
          solidBlock(getB(Math.floor(x), Math.floor(y+0.9), Math.floor(z)));
 }
 var mobNextId = 1;
-function spawnMob(type, x, y, z){
+function spawnMob(type, x, y, z, hp){
   var m = { id:mobNextId++, type:type, x:x, y:y, z:z, vy:0, yaw:Math.random()*Math.PI*2,
-            wt:1+Math.random()*2, idle:false, hp:(type==='cow'?10:8), g:makeMobModel(type), hop:0 };
+            wt:1+Math.random()*2, idle:false,
+            hp:(typeof hp === 'number' ? hp : (type==='cow'?10:8)),
+            g:makeMobModel(type), hop:0, fleeT:0, fleeYaw:0 };
   m.g.position.set(x,y,z);
   mobs.push(m);
 }
 function mobById(id){ for(var i=0;i<mobs.length;i++) if(mobs[i].id === id) return mobs[i]; return null; }
+function allPlayerPositions(){
+  var pos = [{ x:player.pos.x, z:player.pos.z }];
+  if(net.mode === 'host'){
+    for(var pid in net.conns){
+      var pp = net.conns[pid];
+      if(pp.authed) pos.push({ x:pp.x, z:pp.z });
+    }
+  }
+  return pos;
+}
+function mobNearAnyPlayer(m){
+  var maxD = (settings.dist * CHUNK) + 8;
+  var pos = allPlayerPositions();
+  for(var i=0; i<pos.length; i++){
+    var dx = m.x - pos[i].x, dz = m.z - pos[i].z;
+    if(dx*dx + dz*dz <= maxD*maxD) return true;
+  }
+  return false;
+}
 function trySpawnMobs(){
   if(mobs.length >= MOB_CAP) return;
+  var positions = allPlayerPositions();
+  var center = positions[Math.floor(Math.random()*positions.length)];
   for(var attempt=0; attempt<4; attempt++){
     var ang = Math.random()*Math.PI*2, dist = 14 + Math.random()*14;
-    var x = player.pos.x + Math.cos(ang)*dist;
-    var z = player.pos.z + Math.sin(ang)*dist;
+    var x = center.x + Math.cos(ang)*dist;
+    var z = center.z + Math.sin(ang)*dist;
     var cx = Math.floor(x)>>4, cz = Math.floor(z)>>4;
-    if(!chunks[ckey(cx,cz)]) continue;               // nur in geladenen Chunks
+    if(!chunks[ckey(cx,cz)]) continue;
     var h = terrainHeight(Math.floor(x), Math.floor(z));
-    if(getB(Math.floor(x), h, Math.floor(z)) !== GRASS) continue;  // nur auf Gras
+    if(getB(Math.floor(x), h, Math.floor(z)) !== GRASS) continue;
     spawnMob(Math.random() < 0.5 ? 'cow' : 'sheep', Math.floor(x)+0.5, h+1, Math.floor(z)+0.5);
     return;
   }
@@ -81,14 +104,20 @@ function removeMob(i){
 function mobAngDiff(a, b){ var d = (b - a) % (Math.PI*2); if(d > Math.PI) d -= Math.PI*2; if(d < -Math.PI) d += Math.PI*2; return d; }
 // Client: Tiere nur anzeigen, Positionen vom Host interpolieren
 function updateClientMobs(dt){
-  var k = Math.min(1, dt*10);
+  var k = Math.min(1, dt*5);   // langsamer = weicher
   for(var i=0; i<mobs.length; i++){
     var m = mobs[i];
     if(m.tx !== undefined){
-      m.x += (m.tx - m.x) * k;
-      m.y += (m.ty - m.y) * k;
-      m.z += (m.tz - m.z) * k;
-      m.yaw += mobAngDiff(m.yaw, m.tyaw) * k;
+      var ddx = m.tx-m.x, ddy = m.ty-m.y, ddz = m.tz-m.z;
+      if(ddx*ddx + ddy*ddy + ddz*ddz > 25){
+        // mehr als 5 Blöcke Abstand -> sofort teleportieren statt gleiten
+        m.x = m.tx; m.y = m.ty; m.z = m.tz; m.yaw = m.tyaw;
+      } else {
+        m.x += (m.tx - m.x) * k;
+        m.y += (m.ty - m.y) * k;
+        m.z += (m.tz - m.z) * k;
+        m.yaw += mobAngDiff(m.yaw, m.tyaw) * k;
+      }
     }
     m.g.position.set(m.x, m.y, m.z);
     m.g.rotation.y = m.yaw;
@@ -118,25 +147,35 @@ function updateMobs(dt){
   mobSpawnT += dt;
   if(mobSpawnT > 3){ mobSpawnT = 0; if(gameMode === 'survival') trySpawnMobs(); }
 
-  var maxD = (settings.dist * CHUNK) + 8;
   for(var i = mobs.length - 1; i >= 0; i--){
     var m = mobs[i];
-    var dxp = m.x - player.pos.x, dzp = m.z - player.pos.z;
-    if(dxp*dxp + dzp*dzp > maxD*maxD){ removeMob(i); continue; }   // zu weit weg -> entfernen
+    if(!mobNearAnyPlayer(m)){ removeMob(i); continue; }   // zu weit von allen Spielern -> entfernen
 
-    // Wandern
-    m.wt -= dt;
-    if(m.wt <= 0){
-      m.wt = 1.5 + Math.random()*3;
-      m.idle = Math.random() < 0.35;
-      if(!m.idle) m.yaw = Math.random()*Math.PI*2;
-    }
-    if(!m.idle){
-      var sp = 1.3;
-      var nx = m.x - Math.sin(m.yaw) * sp * dt;
-      var nz = m.z - Math.cos(m.yaw) * sp * dt;
-      if(!mobBlocked(nx, m.y, nz)){ m.x = nx; m.z = nz; }
-      else { m.yaw = Math.random()*Math.PI*2; }   // gegen Wand -> umdrehen
+    // Bewegung: Flucht hat Vorrang vor normalem Wandern
+    if(m.fleeT > 0){
+      m.fleeT -= dt;
+      m.idle = false;
+      m.yaw = m.fleeYaw;
+      var fsp = 2.8;
+      var fnx = m.x - Math.sin(m.yaw) * fsp * dt;
+      var fnz = m.z - Math.cos(m.yaw) * fsp * dt;
+      if(!mobBlocked(fnx, m.y, fnz)){ m.x = fnx; m.z = fnz; }
+      else { m.fleeYaw = Math.random()*Math.PI*2; m.yaw = m.fleeYaw; }
+    } else {
+      // normales Wandern
+      m.wt -= dt;
+      if(m.wt <= 0){
+        m.wt = 1.5 + Math.random()*3;
+        m.idle = Math.random() < 0.35;
+        if(!m.idle) m.yaw = Math.random()*Math.PI*2;
+      }
+      if(!m.idle){
+        var sp = 1.3;
+        var nx = m.x - Math.sin(m.yaw) * sp * dt;
+        var nz = m.z - Math.cos(m.yaw) * sp * dt;
+        if(!mobBlocked(nx, m.y, nz)){ m.x = nx; m.z = nz; }
+        else { m.yaw = Math.random()*Math.PI*2; }
+      }
     }
     // Schwerkraft + Boden
     m.vy -= GRAVITY * dt;
@@ -200,15 +239,16 @@ function meleeAttack(){
   var hit = nearestMobHit(3.4);
   if(!hit) return false;
   var m = hit.mob;
+  var fleeYaw = Math.atan2(hit.dx, hit.dz) + Math.PI;
   if(net.mode === 'client'){
-    // Client: Treffer an den Host melden, der entscheidet
-    jsend(net.hostConn, { t:'mobhit', i:m.id, d:meleeDamage() });
-    m.hop = 0.18;   // kleines lokales Feedback
+    jsend(net.hostConn, { t:'mobhit', i:m.id, d:meleeDamage(), fyaw:fleeYaw });
+    m.hop = 0.18;
     return true;
   }
   m.hp -= meleeDamage();
   m.hop = 0.18;
-  // kleiner Rückstoß weg vom Spieler
+  m.fleeT = 2.0 + Math.random();
+  m.fleeYaw = fleeYaw;
   var nx = m.x + hit.dx * 0.5, nz = m.z + hit.dz * 0.5;
   if(!mobBlocked(nx, m.y, nz)){ m.x = nx; m.z = nz; }
   m.vy = 3.2;

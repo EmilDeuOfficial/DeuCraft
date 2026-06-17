@@ -211,7 +211,7 @@ function invSlotClick(idx){
     }
   }
   if(isCraftInput(idx)) computeCraft();
-  if(idx === FUR_IN || idx === FUR_FUEL) syncOpenFurnaceFromSlots();
+  if(idx === FUR_IN || idx === FUR_FUEL){ syncOpenFurnaceFromSlots(); notifyFurnaceChange(); }
   invDirty = true;
   renderInvUI(); renderCursor();
 }
@@ -222,14 +222,12 @@ function splitClick(idx){
   if(idx >= ARMOR_0 && idx < ARMOR_END) return;
   var s = slots[idx];
   if(!cursorItem){
-    // Hälfte aufnehmen, aufgerundet in die Hand (7 -> 4 Hand / 3 bleibt)
     if(!s) return;
     var take = Math.ceil(s.count / 2);
     var leave = s.count - take;
     cursorItem = { id:s.id, count:take };
     slots[idx] = leave > 0 ? { id:s.id, count:leave } : null;
   } else {
-    // ein einzelnes Item ablegen
     var ms = maxStack(cursorItem.id);
     if(!s){
       slots[idx] = { id:cursorItem.id, count:1 };
@@ -237,12 +235,12 @@ function splitClick(idx){
     } else if(s.id === cursorItem.id && s.count < ms){
       s.count++; cursorItem.count--;
     } else {
-      return; // anderes Item im Slot: nichts tun
+      return;
     }
     if(cursorItem.count <= 0) cursorItem = null;
   }
   if(isCraftInput(idx)) computeCraft();
-  if(idx === FUR_IN || idx === FUR_FUEL) syncOpenFurnaceFromSlots();
+  if(idx === FUR_IN || idx === FUR_FUEL){ syncOpenFurnaceFromSlots(); notifyFurnaceChange(); }
   invDirty = true;
   renderInvUI(); renderCursor();
 }
@@ -333,6 +331,7 @@ function takeFurnaceOut(){
   cursorItem.count += res.count;
   slots[FUR_OUT] = null;
   syncOpenFurnaceFromSlots();
+  notifyFurnaceChange();
   invDirty = true;
   renderInvUI(); renderCursor();
 }
@@ -373,7 +372,10 @@ function furnaceTick(dt){
   var openF = (openFurnaceKey && furnaces[openFurnaceKey]) ? furnaces[openFurnaceKey] : null;
   for(var k in furnaces){
     var changed = tickFurnace(furnaces[k], dt);
-    if(furnaces[k] === openF && changed){ mirrorFurnaceToSlots(openF); invDirty = true; }
+    if(changed){
+      if(furnaces[k] === openF){ mirrorFurnaceToSlots(openF); invDirty = true; }
+      broadcastFurnaceState(k);
+    }
   }
   // Anzeige (Flamme + Balken) nur für den gerade offenen Ofen
   if(invOpen && furnaceOpen && openF){

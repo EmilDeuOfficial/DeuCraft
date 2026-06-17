@@ -70,6 +70,16 @@ function applyRemoteBlock(x,y,z,id){
   setB(x,y,z,id);
   rebuildAt(x,z);
 }
+function broadcastFurnaceState(fk){
+  if(net.mode !== 'host') return;
+  var f = furnaces[fk]; if(!f) return;
+  hostBroadcast({ t:'furnace', k:fk, in:f.in, fuel:f.fuel, out:f.out, burnLeft:f.burnLeft, burnMax:f.burnMax, prog:f.prog });
+}
+function notifyFurnaceChange(){
+  if(net.mode !== 'client' || !openFurnaceKey || !furnaces[openFurnaceKey]) return;
+  var f = furnaces[openFurnaceKey];
+  jsend(net.hostConn, { t:'furnace_set', k:openFurnaceKey, in:f.in, fuel:f.fuel, out:f.out });
+}
 
 /* ---------- HOST ---------- */
 function hostStart(){
@@ -127,7 +137,8 @@ function hostHandle(id, m){
       t:'welcome', id:id, seed:SEED, name:current ? current.name : 'Welt',
       mode:gameMode, diff:current ? current.diff : 2
     });
-    sendEditsTo(peer.conn);   // Bauänderungen paketweise hinterher
+    sendEditsTo(peer.conn);
+    jsend(peer.conn, { t:'furnace_all', data:furnaces });
     showToast(peer.name + ' ist beigetreten');
     refreshPlayerList();
     updateNetBadge();
@@ -139,16 +150,22 @@ function hostHandle(id, m){
     applyRemoteBlock(m.x, m.y, m.z, m.id);
     hostBroadcast({ t:'block', x:m.x, y:m.y, z:m.z, id:m.id }, id);
   } else if(m.t === 'mobhit'){
-    // Client hat ein Tier getroffen: Host wendet Schaden an, Beute geht an den Client
     var mob = mobById(m.i);
     if(!mob) return;
     mob.hp -= (m.d || 2);
     mob.hop = 0.18; mob.vy = 3.2;
+    mob.fleeT = 2.0 + Math.random();
+    mob.fleeYaw = m.fyaw !== undefined ? m.fyaw : Math.random()*Math.PI*2;
     if(mob.hp <= 0){
       jsend(peer.conn, { t:'mobdrop', drops: mobDrops(mob.type) });
       var mi = mobs.indexOf(mob);
       if(mi >= 0) removeMob(mi);
     }
+  } else if(m.t === 'furnace_set'){
+    var fz = furnaces[m.k];
+    if(!fz) return;
+    fz.in = m.in || null; fz.fuel = m.fuel || null; fz.out = m.out || null;
+    hostBroadcast({ t:'furnace', k:m.k, in:fz.in, fuel:fz.fuel, out:fz.out, burnLeft:fz.burnLeft, burnMax:fz.burnMax, prog:fz.prog }, id);
   }
 }
 function sendEditsTo(conn){
@@ -181,7 +198,7 @@ function clientConnect(code, name, password){
   return ensurePeer().then(function(){
     return new Promise(function(res, rej){
       var peer = new Peer({ debug:0 });   // zufällige eigene ID
-      net._joinName = name; net._joinPass = password;
+      net._code = code; net._joinName = name; net._joinPass = password;
       var opened = false, settled = false;
       function fail(msg){ if(!settled){ settled = true; rej(new Error(msg)); } }
       peer.on('open', function(){
@@ -242,13 +259,37 @@ function clientHandle(m){
   } else if(m.t === 'mobdrop'){
     if(m.drops) m.drops.forEach(function(d){ addItem(d.id, d.count); });
     showToast('Beute erhalten');
+  } else if(m.t === 'furnace'){
+    if(!furnaces[m.k]){ var pts = m.k.split('|'); furnaces[m.k] = newFurnace(pts[0]|0, pts[1]|0, pts[2]|0); }
+    var fz = furnaces[m.k];
+    fz.in = m.in||null; fz.fuel = m.fuel||null; fz.out = m.out||null;
+    fz.burnLeft = m.burnLeft||0; fz.burnMax = m.burnMax||0; fz.prog = m.prog||0;
+    if(openFurnaceKey === m.k){ mirrorFurnaceToSlots(fz); invDirty = true; }
+  } else if(m.t === 'furnace_all'){
+    for(var fk in m.data){
+      var fd = m.data[fk];
+      furnaces[fk] = { x:fd.x, y:fd.y, z:fd.z, in:fd.in||null, fuel:fd.fuel||null, out:fd.out||null,
+                       burnLeft:fd.burnLeft||0, burnMax:fd.burnMax||0, prog:fd.prog||0 };
+    }
   }
 }
 function onClientLost(reason){
   if(net.mode !== 'client') return;
+  var savedCode = net._code, savedName = net._joinName, savedPass = net._joinPass;
   net.mode = 'off';
-  showToast(reason);
-  leaveToMenu(false);
+  try{ if(net.peer) net.peer.destroy(); }catch(e){}
+  net.peer = null; net.hostConn = null;
+  if(!inGame || !savedCode){ showToast(reason); leaveToMenu(false); return; }
+  showToast(reason + ' – Wiederverbindung...');
+  var attempt = 0;
+  (function tryReconnect(){
+    if(attempt >= 3){ showToast('Verbindung verloren'); leaveToMenu(false); return; }
+    attempt++;
+    setTimeout(function(){
+      if(net.mode === 'client') return;   // in der Zwischenzeit verbunden
+      clientConnect(savedCode, savedName, savedPass).catch(function(){ tryReconnect(); });
+    }, attempt * 2000);
+  })();
 }
 
 /* ---------- Tick: Positionen austauschen ---------- */

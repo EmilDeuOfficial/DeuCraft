@@ -37,14 +37,23 @@ function damage(d){
   if(health <= 0) die();
 }
 function die(){
-  showToast('Du bist gestorben');
+  if(gameMode === 'creative') return;
   health = 20; hunger = 20;
   statsDirty = true;
-  player.pos.set(WORLD_BLOCKS/2 + 0.5, 40, WORLD_BLOCKS/2 + 0.5);
   player.vel.set(0,0,0);
+  paused = true;
+  if(locked) document.exitPointerLock();
+  document.getElementById('deathScreen').classList.add('active');
+}
+function respawn(){
+  document.getElementById('deathScreen').classList.remove('active');
+  paused = false;
+  player.pos.set(WORLD_BLOCKS/2 + 0.5, 40, WORLD_BLOCKS/2 + 0.5);
+  player.yaw = 0; player.pitch = 0;
   spawnHeight();
   lastPCX = -999;
   updateChunks(true);
+  if(!isTouch) canvas.requestPointerLock();
 }
 
 /* ============ Inventar ============ */
