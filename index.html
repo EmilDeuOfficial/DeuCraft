@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>BlockCraft 3D</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- HUD -->
+<div id="crosshair" class="hud"></div>
+<div id="mineProg" class="hud"><div></div></div>
+<canvas id="statsCv" class="hud" width="364" height="26"></canvas>
+<div id="info" class="hud"></div>
+<div id="netBadge"></div>
+<div id="hotbar" class="hud hud-flex"></div>
+<button id="btnPause" class="hud">| |</button>
+<button id="btnInv" class="hud">⊞</button>
+
+<div id="joy" class="touch-only"><div id="joyKnob"></div></div>
+<div id="btnJump" class="touch-only">▲</div>
+<div id="btnDown" class="touch-only">▼</div>
+<div id="btnMode" class="touch-only">⛏</div>
+
+<!-- Inventar -->
+<div id="scrInv">
+  <div class="invPanel">
+    <div id="creativeBox" style="display:none;">
+      <div class="invTitle">Kreativ: Items nehmen</div>
+      <div class="invRow" id="creativePalette"></div>
+      <div class="invSep"></div>
+    </div>
+    <div style="display:flex; gap:14px; align-items:flex-start;">
+      <div>
+        <div class="invTitle">Rüstung</div>
+        <div id="armorCol" style="display:flex; flex-direction:column; gap:2px;"></div>
+      </div>
+      <div id="playerBox"></div>
+      <div>
+        <div class="invTitle" id="craftTitle">Handwerk</div>
+        <div id="craft2x2wrap" style="display:flex; align-items:center; gap:8px;">
+          <div id="craftGrid" style="display:grid; grid-template-columns:auto auto; gap:2px;"></div>
+          <div class="craftArrow">➜</div>
+          <div id="craftResult"></div>
+        </div>
+        <div id="craft3x3wrap" style="display:none; align-items:center; gap:8px;">
+          <div id="tableGrid" style="display:grid; grid-template-columns:auto auto auto; gap:2px;"></div>
+          <div class="craftArrow">➜</div>
+          <div id="tableResult"></div>
+        </div>
+        <div id="furnaceWrap" style="display:none; align-items:center; gap:12px;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+            <div id="furInSlot"></div>
+            <div id="furFlame" style="font-size:18px; line-height:1; filter:grayscale(1); opacity:.35;">🔥</div>
+            <div id="furFuelSlot"></div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:3px;">
+            <div class="craftArrow">➜</div>
+            <div style="width:46px; height:6px; background:#777; box-shadow:inset 1px 1px 0 #555;"><div id="furProgBar" style="height:100%; width:0%; background:#d8902a;"></div></div>
+          </div>
+          <div id="furOutSlot"></div>
+        </div>
+        <div class="craftHint" id="craftHint">1 Holz ➜ 4 Bretter · 2 Bretter ➜ 4 Stöcke · 4 Bretter ➜ Werkbank</div>
+      </div>
+    </div>
+    <div class="invSep"></div>
+    <div class="invTitle">Inventar</div>
+    <div class="invRow" id="invGrid"></div>
+    <div class="invSep"></div>
+    <div class="invTitle">Hotbar</div>
+    <div class="invRow" id="invHotbarRow"></div>
+    <div class="craftHint" style="margin-top:8px;">Rechtsklick (oder lang drücken) teilt einen Stapel zur Hälfte. Mit Stapel in der Hand: einzeln ablegen.</div>
+  </div>
+</div>
+<div id="cursorItem"><canvas width="16" height="16"></canvas><span class="cnt"></span></div>
+
+<!-- Hauptmenü -->
+<div class="screen open" id="scrMain">
+  <h1>BLOCKCRAFT 3D</h1>
+  <div class="sub">Eine Voxel-Welt im Browser</div>
+  <button class="btn primary" id="btnSingle">Einzelspieler</button>
+  <button class="btn" id="btnMulti">Mehrspieler</button>
+  <button class="btn" id="btnSettings">Einstellungen</button>
+  <button class="btn danger" id="btnExit">Beenden</button>
+</div>
+
+<!-- Weltauswahl -->
+<div class="screen" id="scrWorlds">
+  <h2>Welt auswählen</h2>
+  <div class="panel"><div id="worldList"></div></div>
+  <div style="margin-top:14px;">
+    <button class="btn small primary" id="btnNewWorld">Neue Welt</button>
+    <button class="btn small" id="btnWorldsBack">Zurück</button>
+  </div>
+</div>
+
+<!-- Welt erstellen -->
+<div class="screen" id="scrCreate">
+  <h2>Neue Welt erstellen</h2>
+  <div class="panel">
+    <div class="frow"><label>Weltname</label><input type="text" id="inWorldName" maxlength="24" value="Neue Welt"></div>
+    <div class="frow"><label>Seed (optional)</label><input type="text" id="inSeed" maxlength="12" placeholder="zufällig"></div>
+    <div class="frow"><label>Spielmodus</label><button class="toggle" id="tglMode">Überleben</button></div>
+    <div class="frow"><label>Schwierigkeit</label><button class="toggle" id="tglDiff">Normal</button></div>
+    <div class="frow"><label>Cheats</label><button class="toggle" id="tglCheats">Aus</button></div>
+    <div style="font-size:11px; color:#9ab; text-align:left; line-height:1.6; margin-top:6px;">
+      Cheats An: Taste G (oder ⛏ lange halten) wechselt im Spiel den Modus.<br>
+      Überleben: leere Hotbar, Blöcke abbauen dauert Zeit, Leben und Hunger aktiv.<br>
+      Äpfel droppen manchmal aus Laub und füllen den Hunger.
+    </div>
+  </div>
+  <div style="margin-top:14px;">
+    <button class="btn small primary" id="btnCreateGo">Erstellen</button>
+    <button class="btn small" id="btnCreateBack">Zurück</button>
+  </div>
+</div>
+
+<!-- Einstellungen -->
+<div class="screen" id="scrSettings">
+  <h2>Einstellungen</h2>
+  <div class="panel">
+    <div class="frow"><label>Spielername</label><input type="text" id="inName" maxlength="16" value="Spieler"></div>
+    <div class="frow"><label>Sichtweite</label><input type="range" id="rngDist" min="3" max="8" step="1"><span class="rangeval" id="valDist"></span></div>
+    <div class="frow"><label>Sichtfeld (FOV)</label><input type="range" id="rngFov" min="60" max="100" step="1"><span class="rangeval" id="valFov"></span></div>
+    <div class="frow"><label>Empfindlichkeit</label><input type="range" id="rngSens" min="50" max="200" step="5"><span class="rangeval" id="valSens"></span></div>
+  </div>
+  <div style="margin-top:14px;"><button class="btn small" id="btnSettingsBack">Fertig</button></div>
+</div>
+
+<!-- Mehrspieler: beitreten -->
+<div class="screen" id="scrJoin">
+  <h2>Mehrspieler beitreten</h2>
+  <div class="panel" style="text-align:left;">
+    <div class="frow"><label>Dein Name</label><input type="text" id="joinName" maxlength="16" value="Spieler"></div>
+    <div class="netLabel" style="text-align:center;">Code vom Host eingeben:</div>
+    <input type="text" id="joinCode" inputmode="numeric" maxlength="6" placeholder="------" class="codeInput">
+    <div class="frow"><label>Passwort (falls nötig)</label><input type="text" id="joinPass" maxlength="24" placeholder="leer lassen"></div>
+    <button class="btn small primary" id="btnJoinGo" style="width:100%;">Beitreten</button>
+    <div id="joinStatus" class="netHint" style="text-align:center;"></div>
+    <div id="joinError" class="netErr"></div>
+  </div>
+  <div style="margin-top:12px;"><button class="btn small" id="btnJoinBack">Zurück</button></div>
+</div>
+
+<!-- Mehrspieler: hosten -->
+<div class="screen" id="scrHost">
+  <h2>Welt hosten</h2>
+  <div class="panel" style="text-align:left;">
+    <div class="netHint" style="text-align:center;">Dein Code zum Beitreten:</div>
+    <div id="hostCodeBig" class="codeBig">------</div>
+    <button class="btn small" id="btnCopyCode" style="width:100%;">Code kopieren</button>
+    <div class="frow" style="margin-top:14px;"><label>Passwort verlangen</label><button class="toggle" id="tglHostPass">Aus</button></div>
+    <div class="frow" id="hostPassRow" style="display:none;"><label>Passwort</label><input type="text" id="hostPass" maxlength="24" placeholder="Passwort"></div>
+    <div class="netLabel">Verbundene Spieler:</div>
+    <div id="playerList" class="playerList"><div class="netHint">Noch niemand verbunden.</div></div>
+  </div>
+  <div style="margin-top:12px;"><button class="btn small primary" id="btnHostBack">Zurück zum Spiel</button></div>
+</div>
+
+<!-- Pause -->
+<div class="screen" id="scrPause" style="background:rgba(10,15,22,.78);">
+  <h2>Spiel pausiert</h2>
+  <button class="btn primary" id="btnResume">Weiterspielen</button>
+  <button class="btn" id="btnHostOpen">Welt hosten</button>
+  <button class="btn" id="btnPauseSettings">Einstellungen</button>
+  <button class="btn" id="btnSaveQuit">Speichern und Hauptmenü</button>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="js/constants.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/worlds.js"></script>
+<script src="js/world.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/meshing.js"></script>
+<script src="js/player.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/inventory-ui.js"></script>
+<script src="js/input.js"></script>
+<script src="js/raycast.js"></script>
+<script src="js/blocks.js"></script>
+<script src="js/animals.js"></script>
+<script src="js/multiplayer.js"></script>
+<script src="js/menus.js"></script>
+<script src="js/multiplayer-ui.js"></script>
+<script src="js/client.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
