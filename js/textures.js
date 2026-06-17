@@ -9,13 +9,8 @@ function tn(t,x,y,s){ return thash(t*731 + x*17 + s*101, y*53 + t*3 + s*7); }
 function pick(arr, r){ return arr[Math.min(arr.length-1, Math.floor(r*arr.length))]; }
 
 function drawDirt(t){
-  var browns = ['#9b6c48','#8c5d3b','#7e5234','#a5764f','#74492c'];
+  var browns = ['#9b6c48','#8c5d3b','#7e5234','#a5764f','#74492c','#906040'];
   for(var x=0;x<16;x++) for(var y=0;y<16;y++) px(t,x,y, pick(browns, tn(t,x,y,1)));
-  for(var i=0;i<7;i++){
-    var kx = Math.floor(tn(t,i,3,2)*14), ky = Math.floor(tn(t,i,9,3)*14);
-    px(t,kx,ky,'#5e3a20'); px(t,kx+1,ky,'#684226');
-    px(t,kx,ky+1,'#684226'); px(t,kx+1,ky+1,'#5e3a20');
-  }
   for(var s=0;s<5;s++) px(t, Math.floor(tn(t,s,21,4)*15), Math.floor(tn(t,s,33,5)*15), '#b08e6c');
 }
 drawDirt(2);
