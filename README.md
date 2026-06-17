@@ -1,102 +1,102 @@
 # DeuCraft
 
-Ein browserbasiertes Voxel-Spiel inspiriert von Minecraft — läuft komplett im Browser, ohne Installation.
+A browser-based voxel game inspired by Minecraft — runs entirely in the browser, no installation required.
 
-🌐 **[Jetzt spielen → emildeuofficial.github.io/DeuCraft](https://emildeuofficial.github.io/DeuCraft)**
+🌐 **[Play now → emildeuofficial.github.io/DeuCraft](https://emildeuofficial.github.io/DeuCraft)**
 
 ---
 
 ## Features
 
-### Welt & Terrain
-- Prozedurale Welten mit Seed-System (Gras, Erde, Stein, Sand, Holz, Laub)
-- Tag/Nacht-Zyklus mit Sonnenaufgang und Sonnenuntergang
-- Werkzeug-basierter Abbau (Spitzhacke, Axt, Schaufel — je schneller mit passendem Werkzeug)
-- Platzieren von Blöcken, Fackeln, Truhen, Werkbänken und Öfen
+### World & Terrain
+- Procedural worlds with a seed system (grass, dirt, stone, sand, wood, leaves)
+- Day/night cycle with sunrise and sunset
+- Tool-based block breaking (pickaxe, axe, shovel — faster with the right tool)
+- Place blocks, torches, chests, workbenches, and furnaces
 
-### Spielmodi
-- **Überleben**: Hunger, Herzen, Fallschaden, Zombies nachts
-- **Kreativ**: Fliegen (Doppel-Leertaste), sofortiger Abbau, unbegrenzte Blöcke
+### Game Modes
+- **Survival**: hunger, hearts, fall damage, zombies at night
+- **Creative**: fly (double-tap space), instant breaking, unlimited blocks
 
 ### Crafting & Items
-- 2×2 Handwerk (Hotbar) und 3×3 Werkbank
-- Ofen zum Schmelzen (Steak, gebratenes Hammelfleisch, Sand → Glas)
-- Werkzeuge aus Holz und Stein (Spitzhacke, Axt, Schaufel, Schwert)
-- Essen: Äpfel, Rohes/Gebratenes Rind- und Hammelfleisch
-- Truhen zum Lagern
+- 2×2 hand crafting and 3×3 workbench
+- Furnace for smelting (steak, cooked mutton)
+- Wooden and stone tools (pickaxe, axe, shovel, sword)
+- Food: apples, raw/cooked beef and mutton
+- Chests for storage
 
-### Gegner & Tiere
-- Kühe und Schafe wandern durch die Welt (droppen Fleisch und Wolle)
-- Zombies spawnen nachts — Fackeln in einem 5-Block-Radius verhindern das Spawnen
-- Kampfsystem mit Schwert oder Faust
+### Mobs & Animals
+- Cows and sheep roam the world (drop meat and wool)
+- Zombies spawn at night — placing a torch within 5 blocks prevents spawning
+- Combat with sword or bare fist
 
-### Grafik & UI
-- Pixel-Art Texturen (16×16, prozedural generiert)
-- **3D Handmodell**: gehaltene Blöcke als echter 3D-Würfel, Werkzeuge/Items als extrudierte Voxel — genau wie in Minecraft
-- SVG-Icons für Inventar, Pause, Ofen und Crafting-Pfeile
-- Erster-Person-Kamera mit FOV-Anpassung beim Sprinten
+### Graphics & UI
+- Pixel-art textures (16×16, procedurally generated)
+- **3D hand model**: held blocks render as real 3D cubes, tools/items as extruded voxels — just like Minecraft
+- SVG icons for inventory, pause, furnace, and crafting arrows
+- First-person camera with FOV zoom while sprinting
 
 ### Multiplayer
-- P2P-Multiplayer über WebRTC (PeerJS) — kein Server nötig
-- Host teilt einen 6-stelligen Code; bis zu mehrere Spieler gleichzeitig
-- Host-autoritatives System mit interpolierten Spieler-Avataren
+- P2P multiplayer via WebRTC (PeerJS) — no server needed
+- Host shares a 6-digit code; multiple players can join simultaneously
+- Host-authoritative with interpolated player avatars
 
 ### Mobile
-- Vollständig touch-optimiert: Joystick, Sprung-Button, Kameraschwenk
-- Abbau-/Platzier-Moduswechsel per Tap
+- Fully touch-optimised: joystick, jump button, camera swipe
+- Break/place mode toggle with a single tap
 
 ---
 
-## Technologie
+## Tech Stack
 
-| Bibliothek | Version | Zweck |
+| Library | Version | Purpose |
 |---|---|---|
-| [Three.js](https://threejs.org) | r128 | 3D-Rendering (WebGL) |
-| [PeerJS](https://peerjs.com) | 1.5.4 | WebRTC P2P Multiplayer |
+| [Three.js](https://threejs.org) | r128 | 3D rendering (WebGL) |
+| [PeerJS](https://peerjs.com) | 1.5.4 | WebRTC P2P multiplayer |
 
-Kein Build-Tool, kein Framework — reines HTML/CSS/JS, direkt im Browser lauffähig.
+No build tools, no framework — plain HTML/CSS/JS, runs directly in any modern browser.
 
 ---
 
-## Steuerung
+## Controls
 
 ### Desktop
-| Taste | Aktion |
+| Key | Action |
 |---|---|
-| `WASD` | Bewegen |
-| `Strg + W` / Doppel-`W` | Sprinten |
-| `Leertaste` | Springen / Doppel: Fliegen (Kreativ) |
-| `E` | Inventar öffnen |
-| `1–9` | Hotbar-Slot wählen |
-| `G` | Spielmodus wechseln (nur mit Cheats) |
-| Mausklick links | Abbauen / Angreifen |
-| Mausklick rechts | Platzieren / Benutzen |
+| `WASD` | Move |
+| `Ctrl + W` / double `W` | Sprint |
+| `Space` | Jump / double-tap: fly (Creative) |
+| `E` | Open inventory |
+| `1–9` | Select hotbar slot |
+| `G` | Toggle game mode (cheats only) |
+| Left click | Break / attack |
+| Right click | Place / use |
 
 ### Mobile
-| Geste | Aktion |
+| Input | Action |
 |---|---|
-| Linker Joystick | Bewegen |
-| Wischgeste rechts | Kamera drehen |
-| Kurzer Tap rechts | Abbauen / Platzieren (je nach Modus) |
-| ⛏ Button | Modus wechseln (Abbauen ↔ Platzieren) |
-| ▲ / ▼ | Springen / Sinken (Kreativ) |
+| Left joystick | Move |
+| Swipe right side | Look around |
+| Short tap right side | Break / place (depends on mode) |
+| ⛏ button | Toggle break ↔ place mode |
+| ▲ / ▼ | Jump / descend (Creative) |
 
 ---
 
-## Lokal ausführen
+## Running Locally
 
 ```bash
 git clone https://github.com/EmilDeuOfficial/DeuCraft.git
 cd DeuCraft
-# Einen lokalen HTTP-Server starten (z.B. mit Python):
+# Start a local HTTP server (e.g. with Python):
 python3 -m http.server 8000
-# Dann im Browser: http://localhost:8000
+# Then open: http://localhost:8000
 ```
 
-> Direktes Öffnen als Datei (`file://`) funktioniert **nicht**, da der Browser für lokale Dateien keine Cross-Origin-Anfragen erlaubt.
+> Opening the file directly via `file://` will **not** work due to browser CORS restrictions on local files.
 
 ---
 
-## Lizenz
+## License
 
-Siehe [LICENSE](LICENSE).
+See [LICENSE](LICENSE).
