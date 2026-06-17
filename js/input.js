@@ -185,4 +185,16 @@ document.addEventListener('touchend', function(e){
     }
   }
 });
+document.addEventListener('touchcancel', function(e){
+  for(var i=0; i<e.changedTouches.length; i++){
+    var t = e.changedTouches[i];
+    if(t.identifier === joyId){
+      joyId = null; joyVec.x = 0; joyVec.y = 0;
+      joyKnob.style.transform = 'translate(0,0)';
+    }
+    if(t.identifier === lookId){
+      lookId = null; lookLast = null; touchMining = false;
+    }
+  }
+});
 
