@@ -476,6 +476,37 @@ function closeInv(){
   scrInv.classList.remove('open');
   if(!isTouch && inGame && !paused) canvas.requestPointerLock();
 }
+/* Inventar sortieren: gleiche Items zusammenführen, nach Stapelmenge absteigend,
+   Lücken nach hinten schieben. Hotbar (0-9) + Hauptinventar (10-39) gemeinsam. */
+function sortInventory(){
+  /* Alle Items sammeln */
+  var items = [];
+  for(var i = 0; i < SLOTS_N; i++){
+    if(slots[i]) items.push({ id: slots[i].id, count: slots[i].count });
+    slots[i] = null;
+  }
+  /* Gleiche Item-Typen zusammenführen */
+  var merged = {};
+  for(var k = 0; k < items.length; k++){
+    var it = items[k];
+    if(!merged[it.id]) merged[it.id] = 0;
+    merged[it.id] += it.count;
+  }
+  /* Auf Max-Stapelgröße aufteilen */
+  var stacks = [];
+  for(var id in merged){
+    var ms = maxStack(id|0), rem = merged[id];
+    while(rem > 0){ var take = Math.min(ms, rem); stacks.push({ id:id|0, count:take }); rem -= take; }
+  }
+  /* Absteigend nach Anzahl sortieren, bei Gleichstand nach ID (stabil) */
+  stacks.sort(function(a, b){ return b.count !== a.count ? b.count - a.count : a.id - b.id; });
+  /* Zurück in Slots schreiben */
+  for(var j = 0; j < SLOTS_N; j++) slots[j] = stacks[j] || null;
+  invDirty = true;
+  renderInvUI();
+}
+
 scrInv.addEventListener('click', function(e){ if(e.target === scrInv) closeInv(); });
 document.getElementById('btnInv').addEventListener('click', function(){ invOpen ? closeInv() : openInv(); });
+document.getElementById('btnSort').addEventListener('click', sortInventory);
 
