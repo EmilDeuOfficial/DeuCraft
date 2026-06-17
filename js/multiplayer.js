@@ -273,6 +273,7 @@ function clientHandle(m){
     updateChunks(true);
     processQueue(40);
   } else if(m.t === 'players'){
+    if(m.day !== undefined) dayTime = m.day;
     syncRoster(m.list);
   } else if(m.t === 'mobs'){
     syncMobs(m.list);
@@ -337,7 +338,7 @@ function netTick(dt){
       if(!p.authed) continue;
       list.push({ id:id|0, name:p.name, x:p.x, y:p.y, z:p.z, yaw:p.yaw, pitch:p.pitch });
     }
-    hostBroadcast({ t:'players', list:list });
+    hostBroadcast({ t:'players', list:list, day:dayTime });
     // Tiere an die Clients schicken
     hostBroadcast({ t:'mobs', list: mobs.map(function(m){
       return { i:m.id, t:(m.type==='cow'?0:m.type==='sheep'?1:2),

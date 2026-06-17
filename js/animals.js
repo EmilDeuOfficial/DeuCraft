@@ -99,7 +99,8 @@ function trySpawnMobs(){
     var h = terrainHeight(Math.floor(x), Math.floor(z));
     if(getB(Math.floor(x), h, Math.floor(z)) !== GRASS) continue;
     var sr = Math.random();
-    spawnMob(sr < 0.2 ? 'zombie' : (sr < 0.6 ? 'cow' : 'sheep'), Math.floor(x)+0.5, h+1, Math.floor(z)+0.5);
+    var spawnType = (isNight() && sr < 0.3) ? 'zombie' : (Math.random() < 0.5 ? 'cow' : 'sheep');
+    spawnMob(spawnType, Math.floor(x)+0.5, h+1, Math.floor(z)+0.5);
     return;
   }
 }
@@ -481,8 +482,9 @@ function loop(){
     }
   }
   if(inGame) updateAvatars(dt);
-  if(inGame && !paused) updateMobs(dt);                         // Tiere: Host/SP simulieren, Client interpoliert
-  if(inGame && !paused) furnaceTick(dt);                         // Ofen schmilzt immer weiter, auch geschlossen
+  if(inGame && !paused) updateMobs(dt);
+  if(inGame && !paused) furnaceTick(dt);
+  if(inGame && !paused) updateDayNight(dt);
   if(invDirty){ invDirty = false; renderHotbar(); if(invOpen) renderInvUI(); }
   if(statsDirty){ statsDirty = false; renderStats(); }
   renderer.render(scene, camera);
@@ -497,7 +499,8 @@ function loop(){
       infoEl.innerHTML = 'FPS: ' + fps +
         '<br>XYZ: ' + Math.floor(player.pos.x) + ' ' + Math.floor(player.pos.y) + ' ' + Math.floor(player.pos.z) +
         '<br>Modus: ' + (gameMode === 'survival' ? 'Überleben' : 'Kreativ') + (flying ? ' (fliegt)' : '') +
-        '<br>Chunks: ' + loaded + (buildQueue.length ? ' (+' + buildQueue.length + ')' : '');
+        '<br>Chunks: ' + loaded + (buildQueue.length ? ' (+' + buildQueue.length + ')' : '') +
+        '<br>Zeit: ' + dayTimeStr() + (isNight() ? ' (Nacht)' : ' (Tag)');
     }
   }
 }
