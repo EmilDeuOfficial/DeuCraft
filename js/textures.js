@@ -200,30 +200,53 @@ stickCv.width = 16; stickCv.height = 16;
   for(var i=0;i<9;i++){ var y=3+i, x=11-i; ap(x,y,'#7d5a2c'); ap(x+1,y,'#9a7440'); ap(x,y+1,'#5f4420'); }
 })();
 
-/* Werkzeug-Icons: generisch aus Kopffarbe + Typ erzeugen */
+/* Werkzeug-Icons: Minecraft-style Pixel-Art */
 var toolCv = {};
 function buildTool(id, type, headCol, headDark){
   var cv = document.createElement('canvas'); cv.width = 16; cv.height = 16;
   var a = cv.getContext('2d');
   function ap(x,y,c){ if(x<0||y<0||x>15||y>15) return; a.fillStyle=c; a.fillRect(x,y,1,1); }
-  // Stiel (diagonal von unten-links nach oben-rechts)
-  for(var i=0;i<9;i++){ var sx=4+i, sy=11-i; ap(sx,sy,'#7d5a2c'); ap(sx,sy+1,'#5f4420'); }
-  function fillHead(cells){ cells.forEach(function(p){ ap(p[0],p[1],headCol); }); }
-  function edge(cells){ cells.forEach(function(p){ ap(p[0],p[1],headDark); }); }
+  var SL = '#9a7240', SD = '#6b5030';
+
   if(type === 'pick'){
-    fillHead([[9,1],[10,1],[11,1],[12,2],[13,2],[8,2],[7,3]]);
-    edge([[6,4],[14,3]]);
+    // Two upward prongs (left & right)
+    ap(1,0,headDark); ap(2,0,headCol); ap(2,1,headCol);
+    ap(8,0,headDark); ap(9,0,headCol); ap(9,1,headCol);
+    // Horizontal head bar
+    for(var x=1;x<=10;x++){ ap(x,2,headCol); ap(x,3,headDark); }
+    // Handle diagonal to lower-right
+    [[8,4],[9,5],[10,6],[11,7],[12,8],[13,9],[14,10]].forEach(function(p){ ap(p[0],p[1],SL); ap(p[0]+1,p[1],SD); });
+
   } else if(type === 'axe'){
-    fillHead([[10,1],[11,1],[12,1],[10,2],[11,2],[12,2],[10,3],[11,3],[13,2]]);
-    edge([[9,2],[9,3]]);
+    // Wide trapezoidal blade (wide at top, narrows toward handle)
+    for(var x=0;x<=6;x++) ap(x,0,headCol);
+    for(var x=0;x<=5;x++) ap(x,1,headCol);
+    for(var x=1;x<=4;x++){ ap(x,2,headCol); ap(x,3,headCol); }
+    // Edges
+    for(var y=0;y<=3;y++) ap(7-y,y,headDark);   // diagonal right edge
+    for(var y=0;y<=3;y++) ap(0,y,headDark);      // left edge
+    for(var x=1;x<=4;x++) ap(x,4,headDark);      // bottom edge
+    // Handle
+    [[4,4],[5,5],[6,6],[7,7],[8,8],[9,9],[10,10],[11,11],[12,12]].forEach(function(p){ ap(p[0],p[1],SL); ap(p[0]+1,p[1],SD); });
+
   } else if(type === 'shovel'){
-    fillHead([[11,1],[12,1],[11,2],[12,2],[11,3],[12,3]]);
-    edge([[10,1],[13,1],[10,3],[13,3]]);
+    // Narrow rectangular blade
+    for(var y=0;y<=4;y++) for(var x=2;x<=5;x++) ap(x,y,headCol);
+    for(var y=0;y<=4;y++){ ap(1,y,headDark); ap(6,y,headDark); }
+    for(var x=2;x<=5;x++) ap(x,5,headDark);
+    // Handle
+    [[5,5],[6,6],[7,7],[8,8],[9,9],[10,10],[11,11],[12,12],[13,13]].forEach(function(p){ ap(p[0],p[1],SL); ap(p[0]+1,p[1],SD); });
+
   } else if(type === 'sword'){
-    // Klinge diagonal, andere Richtung
-    for(var j=0;j<7;j++){ var bx=12-j, by=2+j; ap(bx,by,headCol); ap(bx-1,by,headDark); }
-    ap(5,11,'#6b4a26'); ap(6,10,'#6b4a26'); ap(4,12,'#5f4420'); // Griff
-    ap(6,11,'#8a8a8a'); ap(7,10,'#8a8a8a');                      // Parierstange
+    // Long blade 2px wide, \\ diagonal from upper-left
+    for(var j=0;j<8;j++){ ap(j,j,headCol); ap(j+1,j,headDark); }
+    // Crossguard: // diagonal (perpendicular to blade) crossing at ~(5,5)
+    [[3,7],[4,6],[5,5],[6,4],[7,3]].forEach(function(p){ ap(p[0],p[1],'#aaaaaa'); });
+    [[4,7],[5,6],[6,5],[7,4],[8,3]].forEach(function(p){ ap(p[0],p[1],'#666666'); });
+    // Handle
+    [[8,8],[9,9],[10,10],[11,11]].forEach(function(p){ ap(p[0],p[1],SL); ap(p[0]+1,p[1],SD); });
+    // Pommel
+    ap(12,12,SD); ap(13,12,SD); ap(12,13,SD);
   }
   toolCv[id] = cv;
 }

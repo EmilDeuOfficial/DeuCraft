@@ -13,14 +13,14 @@ var armGroup = new THREE.Group();
 var armMat   = new THREE.MeshBasicMaterial({ color: 0xc99a6a });
 var sleeveMat = new THREE.MeshBasicMaterial({ color: 0x4a7bd0 });
 /* Ärmel (oben) + nackter Unterarm/Hand (unten zur Faust) */
-var sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.34, 0.20), sleeveMat);
-sleeve.position.set(0, 0.20, 0);
-var fore   = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.40, 0.21), armMat);
-fore.position.set(0, -0.13, 0);
+var sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.44, 0.22), sleeveMat);
+sleeve.position.set(0, 0.30, 0);
+var fore   = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.48, 0.22), armMat);
+fore.position.set(0, -0.18, 0);
 armGroup.add(sleeve);
 armGroup.add(fore);
-armGroup.position.set(0.60, -0.62, -0.92);
-armGroup.rotation.set(0.32, -0.10, 0.42);
+armGroup.position.set(0.76, -0.82, -0.82);
+armGroup.rotation.set(0.18, -0.16, 0.36);
 hScene.add(armGroup);
 
 /* Leichtes Shading auf die Würfelseiten, damit sie ohne Licht 3D wirken */
@@ -149,12 +149,12 @@ window.renderHand = function(dt){
     var isBlock = !!blockTiles[curId];
     if(isBlock){
       curMesh.scale.setScalar(0.42);
-      curMesh.position.set(0.48 + bx, -0.36 + by + sDy, -1.00 + sDz);
+      curMesh.position.set(0.44 + bx, -0.24 + by + sDy, -0.46 + sDz);
       curMesh.rotation.set(0.46 + sRx, -0.72, 0);
     } else {
-      curMesh.scale.setScalar(0.62);
-      curMesh.position.set(0.46 + bx, -0.34 + by + sDy, -0.86 + sDz);
-      curMesh.rotation.set(0.05 + sRx, -0.30, 0);
+      curMesh.scale.setScalar(0.68);
+      curMesh.position.set(0.42 + bx, -0.24 + by + sDy, -0.60 + sDz);
+      curMesh.rotation.set(0.40 + sRx, -0.40, 0.40);
     }
   }
 
